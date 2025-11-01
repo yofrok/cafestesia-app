@@ -15,7 +15,7 @@ interface OperationsScreenProps {
 const employees: Employee[] = ['Ali', 'Fer', 'Claudia', 'Admin'];
 
 const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, criticalTasks }) => {
-    const { tasks, addTask, addMultipleTasks, updateTask, updateTaskStatus } = kanbanHook;
+    const { tasks, addTask, addMultipleTasks, updateTask, updateTaskStatus, deleteTask } = kanbanHook;
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<KanbanTask | null>(null);
@@ -174,6 +174,7 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
                 isOpen={isModalOpen} 
                 onClose={handleCloseModal} 
                 onSave={handleSaveTask}
+                onDelete={deleteTask}
                 task={editingTask}
                 selectedDate={selectedDateStr}
             />

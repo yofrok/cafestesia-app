@@ -4,6 +4,7 @@ import { START_SOUND_BASE64, WARNING_SOUND_BASE64, ALARM_SOUND_BASE64, SUCCESS_S
 const SOUND_MUTED_KEY = 'productionSoundMuted';
 
 type SoundName = 'start' | 'warning' | 'alarm' | 'success';
+type AudioState = 'loading' | 'ready' | 'error';
 
 const sounds: Record<SoundName, string> = {
     start: START_SOUND_BASE64,
@@ -16,12 +17,13 @@ export const useProductionAlerts = () => {
     const audioContextRef = useRef<AudioContext | null>(null);
     const audioBuffersRef = useRef<Partial<Record<SoundName, AudioBuffer>>>({});
     const alarmSourceRef = useRef<AudioBufferSourceNode | null>(null);
+    const isUnlockedRef = useRef(false);
+
+    const [audioState, setAudioState] = useState<AudioState>('loading');
 
     const [isSoundMuted, setIsSoundMuted] = useState<boolean>(() => {
         try {
-            const storedValue = localStorage.getItem(SOUND_MUTED_KEY);
-            // Default to NOT muted (false) if no value is stored. This was the bug.
-            return storedValue === null ? false : storedValue === 'true';
+            return localStorage.getItem(SOUND_MUTED_KEY) === 'true';
         } catch { 
             return false; 
         }
@@ -31,41 +33,37 @@ export const useProductionAlerts = () => {
         localStorage.setItem(SOUND_MUTED_KEY, String(isSoundMuted));
     }, [isSoundMuted]);
 
-    const unlockAudio = useCallback(() => {
-        if (!audioContextRef.current) {
-            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-        }
-        const context = audioContextRef.current;
-        if (context.state === 'suspended') {
-            context.resume();
-        }
-    }, []);
-
+    // This effect loads and decodes audio files.
     useEffect(() => {
         let isMounted = true;
-        // Create the context as soon as the component mounts.
-        // It will be in a 'suspended' state until a user interaction.
-        if (!audioContextRef.current) {
-             audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-        }
+        setAudioState('loading');
         
-        const context = audioContextRef.current;
+        // Use a temporary context just for decoding.
+        const decodingContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 
         const loadAllSounds = async () => {
             try {
                 const promises = (Object.keys(sounds) as SoundName[]).map(async name => {
                     if (audioBuffersRef.current[name]) return;
-
                     const response = await fetch(sounds[name]);
                     const arrayBuffer = await response.arrayBuffer();
-                    const audioBuffer = await context.decodeAudioData(arrayBuffer);
+                    const audioBuffer = await decodingContext.decodeAudioData(arrayBuffer);
                     if (isMounted) {
                         audioBuffersRef.current[name] = audioBuffer;
                     }
                 });
                 await Promise.all(promises);
+                if (isMounted) {
+                    setAudioState('ready');
+                }
             } catch (error) {
                 console.error("Error loading or decoding audio files:", error);
+                if (isMounted) {
+                    setAudioState('error');
+                }
+            } finally {
+                // Close the temporary context after decoding is done.
+                decodingContext.close();
             }
         };
 
@@ -74,33 +72,54 @@ export const useProductionAlerts = () => {
         return () => { isMounted = false; };
     }, []);
 
+    const unlockAudio = useCallback(() => {
+        if (isUnlockedRef.current) return;
+        
+        if (!audioContextRef.current) {
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        }
+        
+        const context = audioContextRef.current;
+        if (context.state === 'suspended') {
+            context.resume().then(() => {
+                isUnlockedRef.current = true;
+            });
+        } else {
+            isUnlockedRef.current = true;
+        }
+    }, []);
+
+
     const playSound = useCallback((name: SoundName, loop = false) => {
-        if (isSoundMuted) return;
+        if (isSoundMuted || audioState !== 'ready' || !audioContextRef.current) {
+            return;
+        }
         
         const context = audioContextRef.current;
         const buffer = audioBuffersRef.current[name];
-        if (!context || !buffer) return;
+        
+        if (!buffer) return;
 
-        // The resume() function is the key to unlocking audio on user interaction.
-        // It returns a promise, so we play the sound after it resolves.
+        // If the context is still suspended, it means unlockAudio hasn't been successfully called yet.
+        // We don't play to avoid errors. The unlock needs to happen first.
         if (context.state === 'suspended') {
-            context.resume().then(() => {
-                const source = context.createBufferSource();
-                source.buffer = buffer;
-                source.connect(context.destination);
-                source.loop = loop;
-                source.start(0);
-                if (loop) alarmSourceRef.current = source;
-            });
-        } else {
-             const source = context.createBufferSource();
-             source.buffer = buffer;
-             source.connect(context.destination);
-             source.loop = loop;
-             source.start(0);
-             if (loop) alarmSourceRef.current = source;
+            return;
         }
-    }, [isSoundMuted]);
+
+        const source = context.createBufferSource();
+        source.buffer = buffer;
+        source.connect(context.destination);
+        source.loop = loop;
+        source.start(0);
+
+        if (loop) {
+             if (alarmSourceRef.current) {
+                try { alarmSourceRef.current.stop(); } catch (e) {}
+             }
+            alarmSourceRef.current = source;
+        }
+
+    }, [isSoundMuted, audioState]);
 
     const stopAlarmLoop = useCallback(() => {
         if (alarmSourceRef.current) {
@@ -112,7 +131,7 @@ export const useProductionAlerts = () => {
     }, []);
 
     const toggleSoundMute = useCallback(() => {
-        unlockAudio(); // Always try to unlock on user interaction
+        unlockAudio();
         setIsSoundMuted(prev => {
             const nextMuted = !prev;
             if (nextMuted) {
@@ -125,6 +144,8 @@ export const useProductionAlerts = () => {
     return {
         isSoundMuted,
         toggleSoundMute,
+        audioState,
+        unlockAudio,
         playStart: () => playSound('start'),
         playWarning: () => playSound('warning'),
         playAlarmLoop: () => playSound('alarm', true),

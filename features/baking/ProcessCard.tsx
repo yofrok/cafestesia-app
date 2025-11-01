@@ -8,6 +8,7 @@ interface ProcessCardProps {
     onTogglePause: (processId: string) => void;
     onCancel: (processId: string) => void;
     onAcknowledgeFinish: (process: ProductionProcess) => void;
+    isAudioReady: boolean; // New prop
 }
 
 const formatTime = (seconds: number) => {
@@ -33,7 +34,7 @@ const StepItem: React.FC<{ step: RecipeStep, isCompleted: boolean, isCurrent: bo
 };
 
 
-const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onTogglePause, onCancel, onAcknowledgeFinish }) => {
+const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onTogglePause, onCancel, onAcknowledgeFinish, isAudioReady }) => {
     const { state, name, steps, currentStepIndex, totalTimeLeft, stepTimeLeft } = process;
     const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
 
@@ -63,9 +64,10 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onToggleP
                 return (
                     <button 
                         onClick={() => onTogglePause(process.id)} 
-                        className="w-full bg-green-500 text-white font-bold py-3 rounded-lg hover:bg-green-600 transition-colors"
+                        disabled={!isAudioReady}
+                        className="w-full bg-green-500 text-white font-bold py-3 rounded-lg hover:bg-green-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
-                        INICIAR
+                        {isAudioReady ? 'INICIAR' : 'Cargando audio...'}
                     </button>
                 );
             case 'running':

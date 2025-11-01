@@ -16,7 +16,7 @@ const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productio
     const [isSelectionModalOpen, setSelectionModalOpen] = useState(false);
     const [processForFeedback, setProcessForFeedback] = useState<ProductionProcess | null>(null);
 
-    const { processes, startBakingProcess, startHeatingProcess, advanceProcess, togglePauseProcess, cancelProcess, isSoundMuted, toggleSoundMute } = productionHook;
+    const { processes, startBakingProcess, startHeatingProcess, advanceProcess, togglePauseProcess, cancelProcess, isSoundMuted, toggleSoundMute, isAudioReady } = productionHook;
     const { addFeedback } = recipeLogHook;
 
     const handleAcknowledgeFinish = (process: ProductionProcess) => {
@@ -83,6 +83,7 @@ const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productio
                                 onTogglePause={togglePauseProcess}
                                 onCancel={cancelProcess}
                                 onAcknowledgeFinish={() => {}} // This is handled by the finished list
+                                isAudioReady={isAudioReady}
                             />
                         ))}
                     </div>
@@ -105,6 +106,7 @@ const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productio
                                     onTogglePause={() => {}}
                                     onCancel={cancelProcess}
                                     onAcknowledgeFinish={() => handleAcknowledgeFinish(process)}
+                                    isAudioReady={isAudioReady}
                                 />
                             ))}
                         </div>

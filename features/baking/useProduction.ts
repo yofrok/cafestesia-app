@@ -40,8 +40,12 @@ export const useProduction = () => {
         playWarning, 
         playAlarmLoop, 
         stopAlarmLoop, 
-        playSuccess
+        playSuccess,
+        unlockAudio,
+        audioState
     } = useProductionAlerts();
+
+    const isAudioReady = audioState === 'ready';
     
     const playedWarningsRef = useRef(new Set<string>());
     const prevProcessesRef = useRef<ProductionProcess[]>([]);
@@ -217,6 +221,7 @@ export const useProduction = () => {
     }, [stopAlarmLoop, playSuccess]);
     
     const togglePauseProcess = useCallback((processId: string) => {
+        unlockAudio(); // Unlock on the first actual user interaction.
         setProcesses(prev => prev.map(p => {
             if (p.id !== processId || p.state === 'alarm' || p.state === 'finished') return p;
             
@@ -231,12 +236,12 @@ export const useProduction = () => {
                 return { ...p, state: 'running' as const, lastTickTimestamp: Date.now() };
             }
         }));
-    }, [playStart]);
+    }, [playStart, unlockAudio]);
 
     const cancelProcess = useCallback((processId: string) => {
         stopAlarmLoop();
         setProcesses(prev => prev.filter(p => p.id !== processId));
     }, [stopAlarmLoop]);
 
-    return { processes, startBakingProcess, startHeatingProcess, advanceProcess, togglePauseProcess, cancelProcess, isSoundMuted, toggleSoundMute };
+    return { processes, startBakingProcess, startHeatingProcess, advanceProcess, togglePauseProcess, cancelProcess, isSoundMuted, toggleSoundMute, isAudioReady };
 };

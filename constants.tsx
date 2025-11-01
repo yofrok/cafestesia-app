@@ -84,3 +84,5 @@ export const TASK_DURATIONS = [
     { value: 60, label: '1 hora' },
     { value: 120, label: '2 horas' },
 ];
+
+export const OPERATIONS_PIN = '1234';

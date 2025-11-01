@@ -83,5 +83,14 @@ export const useKanban = () => {
         }
     };
 
-    return { tasks, updateTaskStatus, addTask, addMultipleTasks, updateTask };
+    const deleteTask = async (taskId: string) => {
+        const taskRef = firestore.doc(db, 'tasks', taskId);
+        try {
+            await firestore.deleteDoc(taskRef);
+        } catch (error) {
+            console.error("Error deleting task:", error);
+        }
+    };
+
+    return { tasks, updateTaskStatus, addTask, addMultipleTasks, updateTask, deleteTask };
 };
