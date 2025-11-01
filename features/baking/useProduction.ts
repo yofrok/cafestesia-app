@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 // Fix: Imported RecipeStep from types.ts and separated RECIPES import.
 import { ProductionProcess, RecipeStep } from '../../types';
 import { RECIPES } from '../../constants';
+import { useProductionAlerts } from './useProductionAlerts';
 
 const PRODUCTION_STATE_KEY = 'productionState_v2';
 
@@ -32,12 +33,38 @@ export const useProduction = () => {
     const [processes, setProcesses] = useState<ProductionProcess[]>(loadState);
     const timerRef = useRef<number | null>(null);
 
+    const { 
+        isSoundMuted, 
+        toggleSoundMute,
+        playStart, 
+        playWarning, 
+        playAlarmLoop, 
+        stopAlarmLoop, 
+        playSuccess
+    } = useProductionAlerts();
+    
+    const playedWarningsRef = useRef(new Set<string>());
+    const prevProcessesRef = useRef<ProductionProcess[]>([]);
+
     const stopTimer = useCallback(() => {
         if (timerRef.current) {
             clearInterval(timerRef.current);
             timerRef.current = null;
         }
     }, []);
+
+    // Effect to detect state transitions for alarms
+    useEffect(() => {
+        const prevProcesses = prevProcessesRef.current;
+        processes.forEach(p => {
+            const prevP = prevProcesses.find(prev => prev.id === p.id);
+            if (prevP && prevP.state !== 'alarm' && p.state === 'alarm') {
+                playAlarmLoop();
+            }
+        });
+        prevProcessesRef.current = processes;
+    }, [processes, playAlarmLoop]);
+
 
     const tick = useCallback(() => {
         setProcesses(prevProcesses => {
@@ -52,6 +79,13 @@ export const useProduction = () => {
                 
                 const newStepTimeLeft = Math.max(0, p.stepTimeLeft - elapsedSeconds);
                 const newTotalTimeLeft = Math.max(0, p.totalTimeLeft - elapsedSeconds);
+
+                // --- 30-Second Warning Logic ---
+                const warningKey = `${p.id}-${p.currentStepIndex}`;
+                if (newStepTimeLeft > 29 && newStepTimeLeft <= 30 && !playedWarningsRef.current.has(warningKey)) {
+                    playWarning();
+                    playedWarningsRef.current.add(warningKey);
+                }
                 
                 if (newStepTimeLeft === 0) {
                     // Step finished, go into alarm
@@ -75,7 +109,7 @@ export const useProduction = () => {
             if (hasChanged) return updatedProcesses;
             return prevProcesses;
         });
-    }, []);
+    }, [playWarning]);
 
     const startTimer = useCallback(() => {
         stopTimer();
@@ -115,7 +149,7 @@ export const useProduction = () => {
     const startBakingProcess = useCallback((recipeId: string) => {
         const recipe = RECIPES[recipeId];
         if (!recipe) return;
-
+        
         const newProcess: ProductionProcess = {
             id: `baking-${Date.now()}`,
             name: recipe.name,
@@ -151,6 +185,7 @@ export const useProduction = () => {
     }, []);
 
     const advanceProcess = useCallback((processId: string) => {
+        stopAlarmLoop();
         setProcesses(prev => prev.map(p => {
             if (p.id !== processId) return p;
 
@@ -170,6 +205,7 @@ export const useProduction = () => {
                     lastTickTimestamp: Date.now(),
                 };
             } else { // Last step finished
+                playSuccess();
                 return {
                     ...p,
                     state: 'finished' as const,
@@ -178,23 +214,29 @@ export const useProduction = () => {
                 };
             }
         }));
-    }, []);
+    }, [stopAlarmLoop, playSuccess]);
     
     const togglePauseProcess = useCallback((processId: string) => {
         setProcesses(prev => prev.map(p => {
             if (p.id !== processId || p.state === 'alarm' || p.state === 'finished') return p;
             
+            const isFirstStart = p.state === 'paused' && p.totalTimeLeft === p.totalTime;
+
             if (p.state === 'running') {
                 return { ...p, state: 'paused' as const };
             } else { // paused
+                if(isFirstStart) {
+                    playStart();
+                }
                 return { ...p, state: 'running' as const, lastTickTimestamp: Date.now() };
             }
         }));
-    }, []);
+    }, [playStart]);
 
     const cancelProcess = useCallback((processId: string) => {
+        stopAlarmLoop();
         setProcesses(prev => prev.filter(p => p.id !== processId));
-    }, []);
+    }, [stopAlarmLoop]);
 
-    return { processes, startBakingProcess, startHeatingProcess, advanceProcess, togglePauseProcess, cancelProcess };
+    return { processes, startBakingProcess, startHeatingProcess, advanceProcess, togglePauseProcess, cancelProcess, isSoundMuted, toggleSoundMute };
 };

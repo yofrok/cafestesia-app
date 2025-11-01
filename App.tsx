@@ -95,20 +95,8 @@ const App: React.FC = () => {
             .sort((a, b) => a.diff - b.diff);
     }, [tasks, timeAwareTasks, todayStr]);
 
-    // Audio Alert Logic
+    // Audio Alert Logic for Kanban tasks
     const playedAlerts = useRef(new Set<string>());
-
-    useEffect(() => {
-        processes.forEach(p => {
-            const alertId = `proc-${p.id}`;
-            if (p.state === 'alarm' && !playedAlerts.current.has(alertId)) {
-                playAlert();
-                playedAlerts.current.add(alertId);
-            } else if (p.state !== 'alarm' && playedAlerts.current.has(alertId)) {
-                playedAlerts.current.delete(alertId);
-            }
-        });
-    }, [processes, playAlert]);
 
     useEffect(() => {
         const currentCriticalIds = new Set(criticalAndUpcomingTasks.map(t => `task-${t.task.id}`));

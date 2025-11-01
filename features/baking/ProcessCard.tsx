@@ -60,7 +60,14 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onToggleP
     const renderAction = () => {
         switch (state) {
             case 'paused':
-                return <button onClick={() => onTogglePause(process.id)} className="w-full bg-green-500 text-white font-bold py-3 rounded-lg hover:bg-green-600 transition-colors">INICIAR</button>;
+                return (
+                    <button 
+                        onClick={() => onTogglePause(process.id)} 
+                        className="w-full bg-green-500 text-white font-bold py-3 rounded-lg hover:bg-green-600 transition-colors"
+                    >
+                        INICIAR
+                    </button>
+                );
             case 'running':
                 return <button onClick={() => onTogglePause(process.id)} className="w-full bg-yellow-500 text-white font-bold py-3 rounded-lg hover:bg-yellow-600 transition-colors">PAUSAR</button>;
             case 'alarm':

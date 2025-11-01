@@ -16,7 +16,7 @@ const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productio
     const [isSelectionModalOpen, setSelectionModalOpen] = useState(false);
     const [processForFeedback, setProcessForFeedback] = useState<ProductionProcess | null>(null);
 
-    const { processes, startBakingProcess, startHeatingProcess, advanceProcess, togglePauseProcess, cancelProcess } = productionHook;
+    const { processes, startBakingProcess, startHeatingProcess, advanceProcess, togglePauseProcess, cancelProcess, isSoundMuted, toggleSoundMute } = productionHook;
     const { addFeedback } = recipeLogHook;
 
     const handleAcknowledgeFinish = (process: ProductionProcess) => {
@@ -53,7 +53,16 @@ const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productio
     return (
         <div className="p-4 md:p-6 h-full flex flex-col">
             <div className="flex justify-between items-center mb-6 flex-shrink-0">
-                <h2 className="text-xl font-bold text-blue-700">Procesos Activos</h2>
+                <div className="flex items-center gap-4">
+                    <h2 className="text-xl font-bold text-blue-700">Procesos Activos</h2>
+                    <button
+                        onClick={toggleSoundMute}
+                        title={isSoundMuted ? "Activar Sonidos" : "Silenciar Sonidos"}
+                        className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors"
+                    >
+                        <Icon name={isSoundMuted ? "volume-x" : "volume-2"} size={20} />
+                    </button>
+                </div>
                 <button 
                     onClick={() => setSelectionModalOpen(true)}
                     className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm"
