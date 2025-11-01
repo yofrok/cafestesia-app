@@ -1,18 +1,20 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import { Screen } from './types';
 import Sidebar from './components/Sidebar';
-import BreadProductionScreen from './features/baking/BreadProductionScreen';
-import OperationsScreen from './features/operations/OperationsScreen';
-import InventoryScreen from './features/inventory/InventoryScreen';
 import { useKanban } from './services/useKanban';
 import { useInventory } from './services/useInventory';
 import { useProviders } from './services/useProviders';
-import SettingsScreen from './features/settings/SettingsScreen';
 import { useProduction } from './features/baking/useProduction';
 import { useCategories } from './services/useCategories';
 import { useRecipeLog } from './services/useRecipeLog';
 import { useAudioAlerts } from './services/useAudioAlerts';
 import Icon from './components/Icon';
+
+// --- Code Splitting ---
+const BreadProductionScreen = lazy(() => import('./features/baking/BreadProductionScreen'));
+const OperationsScreen = lazy(() => import('./features/operations/OperationsScreen'));
+const InventoryScreen = lazy(() => import('./features/inventory/InventoryScreen'));
+const SettingsScreen = lazy(() => import('./features/settings/SettingsScreen'));
 
 type TimeStatus = 'due' | 'imminent' | 'normal';
 
@@ -23,6 +25,13 @@ const calculateTimeDifference = (taskTime: string) => {
     taskDateTime.setHours(hours, minutes, 0, 0);
     return Math.round((taskDateTime.getTime() - now.getTime()) / 1000 / 60);
 };
+
+const LoadingFallback = () => (
+    <div className="w-full h-full flex items-center justify-center">
+        <Icon name="refresh-cw" className="animate-spin text-blue-500" size={48} />
+    </div>
+);
+
 
 const App: React.FC = () => {
     const [activeScreen, setActiveScreen] = useState<Screen>(Screen.Baking);
@@ -203,7 +212,9 @@ const App: React.FC = () => {
                         </header>
                         <div className="flex-grow relative">
                             <div className="absolute inset-0 overflow-y-auto relative">
-                               {renderScreen()}
+                               <Suspense fallback={<LoadingFallback />}>
+                                   {renderScreen()}
+                               </Suspense>
                             </div>
                         </div>
                     </main>
