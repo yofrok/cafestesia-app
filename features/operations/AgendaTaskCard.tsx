@@ -47,12 +47,12 @@ const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, o
     return (
         <div
             style={style}
-            className={`absolute rounded-lg p-3 flex gap-3 transition-all duration-300 ${bg} border-2 ${statusStyles} ${task.status === 'inprogress' ? border : 'border-transparent'}`}
+            className={`absolute rounded-lg p-2 flex gap-2 transition-all duration-300 ${bg} border-2 ${statusStyles} ${task.status === 'inprogress' ? border : 'border-transparent'}`}
         >
-            <div className={`flex-shrink-0 w-1.5 h-full ${border.replace('border-', 'bg-')} rounded-full`}></div>
-            <div className="flex-grow flex flex-col min-h-0">
+            <div className={`flex-shrink-0 w-1 h-full ${border.replace('border-', 'bg-')} rounded-full`}></div>
+            <div className="flex-grow flex flex-col min-w-0 min-h-0">
                 <div className="flex-grow overflow-hidden">
-                    <p className={`font-bold text-sm ${text} ${task.status === 'done' ? 'line-through' : ''}`}>{task.text}</p>
+                    <p className={`font-bold text-sm break-words ${text} ${task.status === 'done' ? 'line-through' : ''}`}>{task.text}</p>
                     <p className={`text-xs ${text} ${task.status === 'done' ? 'line-through' : ''}`}>
                         {task.time} - {formattedEndTime} ({task.duration} min)
                     </p>

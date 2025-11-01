@@ -12,6 +12,15 @@ interface DailyAgendaViewProps {
 const EXPANDED_HOUR_HEIGHT_PX = 120; // Height for hours with tasks
 const COMPRESSED_HOUR_HEIGHT_PX = 30; // Height for empty hours
 
+interface TaskLayout {
+    task: KanbanTask;
+    top: number;
+    height: number;
+    left: number;
+    width: number;
+    zIndex: number;
+}
+
 const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus, onEditTask }) => {
     const [now, setNow] = useState(new Date());
 
@@ -51,56 +60,70 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
         const minuteOffset = (minutes / 60) * hourLayout.height;
         return hourLayout.top + minuteOffset;
     };
+    
+    const taskLayouts = useMemo(() => {
+        const sortedTasks = [...tasks].sort((a, b) => a.time.localeCompare(b.time) || b.duration - a.duration);
+        const layouts: TaskLayout[] = [];
 
-    const durationToHeight = (duration: number, startTime: string): number => {
-        const startHour = parseInt(startTime.split(':')[0], 10);
-        const hourLayout = hourLayouts.find(l => l.hour === startHour);
-        const hourHeight = hourLayout ? hourLayout.height : EXPANDED_HOUR_HEIGHT_PX;
-        return (duration / 60) * hourHeight;
-    };
+        for (const task of sortedTasks) {
+            const top = timeToPosition(task.time);
+            const taskStart = new Date(`${task.date}T${task.time}`).getTime();
+            const taskEnd = taskStart + task.duration * 60000;
+            const hourLayout = hourLayouts.find(l => l.hour === parseInt(task.time.split(':')[0], 10));
+            const hourHeight = hourLayout ? hourLayout.height : EXPANDED_HOUR_HEIGHT_PX;
+            const height = (task.duration / 60) * hourHeight;
+            
+            const collidingTasks: TaskLayout[] = [];
+            for (const placedLayout of layouts) {
+                const placedStart = new Date(`${placedLayout.task.date}T${placedLayout.task.time}`).getTime();
+                const placedEnd = placedStart + placedLayout.task.duration * 60000;
+
+                if (taskStart < placedEnd && taskEnd > placedStart) {
+                    collidingTasks.push(placedLayout);
+                }
+            }
+            
+            let col = 0;
+            while (collidingTasks.some(l => l.left === col)) {
+                col++;
+            }
+            
+            const maxCols = Math.max(col + 1, ...collidingTasks.map(l => l.width))
+            
+            layouts.push({ task, top, height, left: col, width: 1, zIndex: col });
+        }
+        
+        // Post-process to adjust width and left based on collisions
+         return layouts.map((layout, i, allLayouts) => {
+            const { task, top } = layout;
+            const taskStart = new Date(`${task.date}T${task.time}`).getTime();
+            const taskEnd = taskStart + task.duration * 60000;
+
+            const concurrentTasks = allLayouts.filter(otherLayout => {
+                const otherStart = new Date(`${otherLayout.task.date}T${otherLayout.task.time}`).getTime();
+                const otherEnd = otherStart + otherLayout.task.duration * 60000;
+                return taskStart < otherEnd && taskEnd > otherStart;
+            });
+            
+            const cols = new Set(concurrentTasks.map(l => l.left));
+            const numCols = cols.size;
+            
+            let myColIndex = 0;
+            const sortedCols = Array.from(cols).sort((a, b) => a - b);
+            myColIndex = sortedCols.indexOf(layout.left);
+
+            return {
+                ...layout,
+                width: 100 / numCols,
+                left: (myColIndex / numCols) * 100,
+            };
+        });
+
+    }, [tasks, hourLayouts]);
+
 
     const currentTimePosition = timeToPosition(`${now.getHours()}:${now.getMinutes()}`);
     
-    const taskLayout = useMemo(() => {
-        const sortedTasks = [...tasks].sort((a, b) => a.time.localeCompare(b.time));
-        const layout: { task: KanbanTask; top: number; height: number; left: number; width: number }[] = [];
-        const columns: KanbanTask[][] = [];
-
-        sortedTasks.forEach(task => {
-            let placed = false;
-            for (let i = 0; i < columns.length; i++) {
-                const lastTaskInColumn = columns[i][columns[i].length - 1];
-                const taskStartTime = new Date(`${task.date}T${task.time}`);
-                const lastTaskEndTime = new Date(`${lastTaskInColumn.date}T${lastTaskInColumn.time}`);
-                lastTaskEndTime.setMinutes(lastTaskEndTime.getMinutes() + lastTaskInColumn.duration);
-
-                if (taskStartTime >= lastTaskEndTime) {
-                    columns[i].push(task);
-                    placed = true;
-                    break;
-                }
-            }
-            if (!placed) {
-                columns.push([task]);
-            }
-        });
-
-        const totalColumns = columns.length;
-        columns.forEach((col, colIndex) => {
-            col.forEach(task => {
-                layout.push({
-                    task,
-                    top: timeToPosition(task.time),
-                    height: durationToHeight(task.duration, task.time),
-                    left: (colIndex / totalColumns) * 100,
-                    width: (1 / totalColumns) * 100
-                });
-            });
-        });
-
-        return layout;
-    }, [tasks, hourLayouts]);
-
     return (
         <div className="p-4 md:p-6 h-full">
             <div className="relative" style={{ height: `${totalHeight}px` }}>
@@ -123,7 +146,7 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
                
                 {/* Task Cards */}
                 <div className="absolute top-0 bottom-0 left-16 right-0">
-                   {taskLayout.map(({ task, top, height, left, width }) => (
+                   {taskLayouts.map(({ task, top, height, left, width, zIndex }) => (
                        <AgendaTaskCard 
                            key={task.id}
                            task={task}
@@ -131,10 +154,10 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
                            onEdit={onEditTask}
                            style={{
                                top: `${top}px`,
-                               height: `${Math.max(height - 8, 80)}px`, // Increased min height
+                               height: `${Math.max(height - 4, 80)}px`,
                                left: `${left}%`,
-                               width: `${width}%`,
-                               paddingLeft: '0.5rem',
+                               width: `calc(${width}% - 4px)`,
+                               zIndex: zIndex,
                            }}
                        />
                    ))}
