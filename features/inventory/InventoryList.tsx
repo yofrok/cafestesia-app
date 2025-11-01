@@ -20,7 +20,8 @@ const InventoryList: React.FC<InventoryListProps> = ({ items, onEdit, onRecordSt
         return <p className="text-center text-gray-500 mt-8">No se encontraron productos.</p>;
     }
 
-    const categories = items.reduce<Record<string, InventoryItem[]>>((acc, item) => {
+    // FIX: Explicitly type the accumulator ('acc') in the reduce function to resolve the "Untyped function calls may not accept type arguments" error.
+    const categories = items.reduce((acc: Record<string, InventoryItem[]>, item) => {
         const category = item.category || 'Sin Categoría';
         if (!acc[category]) acc[category] = [];
         acc[category].push(item);

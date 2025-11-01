@@ -28,35 +28,38 @@ const StockUpdateModal: React.FC<StockUpdateModalProps> = ({ isOpen, onClose, on
     }, [isOpen, item, providers]);
 
 
+    // FIX: Refactored handleSubmit to build the payload and call onUpdate within conditional branches.
+    // This avoids the error "Property 'purchaseDetails' does not exist on type 'unknown'" by not mutating the payload object after creation.
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
         setError('');
         const amountNum = parseFloat(amount);
-        const priceNum = parseFloat(totalPrice);
 
         if (isNaN(amountNum) || amountNum <= 0) {
             setError('Introduce una cantidad válida mayor que 0.');
             return;
         }
-        
-        if (isAdding && (isNaN(priceNum) || priceNum < 0)) {
-            setError('Introduce un precio total válido.');
-            return;
-        }
-
-        const updateDetails: Parameters<typeof onUpdate>[0] = {
-            itemId: item.id,
-            change: isAdding ? amountNum : -amountNum,
-        };
 
         if (isAdding) {
-            updateDetails.purchaseDetails = {
-                totalPrice: priceNum,
-                providerName: providerName,
+            const priceNum = parseFloat(totalPrice);
+            if (isNaN(priceNum) || priceNum < 0) {
+                setError('Introduce un precio total válido.');
+                return;
             }
+            onUpdate({
+                itemId: item.id,
+                change: amountNum,
+                purchaseDetails: {
+                    totalPrice: priceNum,
+                    providerName: providerName,
+                }
+            });
+        } else {
+            onUpdate({
+                itemId: item.id,
+                change: -amountNum,
+            });
         }
-
-        onUpdate(updateDetails);
         onClose();
     };
 

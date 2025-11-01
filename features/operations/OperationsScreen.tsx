@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { KanbanTask, Employee } from '../../types';
-import TaskFormModal, { NewTaskPayload } from './TaskFormModal';
+import TaskFormModal, { TaskSubmitPayload } from './TaskFormModal';
 import { useKanban } from '../../services/useKanban';
 import Icon from '../../components/Icon';
 import WeekdaySelector from './WeekdaySelector';
@@ -31,24 +31,42 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
         setEditingTask(null);
     };
 
-    const handleSaveTask = (formData: NewTaskPayload | KanbanTask) => {
-        if ('id' in formData) {
-            updateTask(formData as KanbanTask);
-        } else {
-            const { recurrence, selectedDays, ...commonData } = formData;
-
+    const handleSaveTask = (formData: TaskSubmitPayload, existingTaskId?: string) => {
+        const { recurrence, selectedDays, ...commonData } = formData;
+    
+        const referenceDate = new Date(commonData.date);
+        referenceDate.setMinutes(referenceDate.getMinutes() + referenceDate.getTimezoneOffset());
+    
+        if (existingTaskId) {
+            // EDITING
+            const originalTask = tasks.find(t => t.id === existingTaskId);
+            if (!originalTask) return;
+    
+            const updatedTaskData: KanbanTask = {
+                ...originalTask,
+                ...commonData,
+                id: existingTaskId,
+            };
+            updateTask(updatedTaskData);
+    
             if (recurrence === 'weekly' && selectedDays && selectedDays.length > 0) {
-                // Find monday of the current week
-                const startOfWeek = new Date(selectedDate);
-                const dayOfWeek = selectedDate.getDay();
-                const diff = selectedDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+                const startOfWeek = new Date(referenceDate);
+                const dayOfWeek = referenceDate.getDay();
+                const diff = referenceDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
                 startOfWeek.setDate(diff);
-
+    
+                const editedTaskDayOfWeek = referenceDate.getDay();
+    
                 const tasksToCreate: Omit<KanbanTask, 'id' | 'status'>[] = [];
                 selectedDays.forEach(dayIndexStr => {
-                    const dayIndex = parseInt(dayIndexStr, 10); // 0=Sun, 1=Mon...
+                    const dayIndex = parseInt(dayIndexStr, 10);
+                    
+                    if (dayIndex === editedTaskDayOfWeek) {
+                        return;
+                    }
+                    
                     const taskDate = new Date(startOfWeek);
-                     if (dayIndex === 0) { // Sunday
+                    if (dayIndex === 0) { // Sunday
                         taskDate.setDate(startOfWeek.getDate() + 6);
                     } else { // Monday-Saturday
                         taskDate.setDate(startOfWeek.getDate() + (dayIndex - 1));
@@ -60,10 +78,38 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
                         date: taskDate.toISOString().split('T')[0],
                     });
                 });
+    
+                if (tasksToCreate.length > 0) {
+                    addMultipleTasks(tasksToCreate);
+                }
+            }
+        } else {
+            // ADDING NEW
+            if (recurrence === 'weekly' && selectedDays && selectedDays.length > 0) {
+                const startOfWeek = new Date(referenceDate);
+                const dayOfWeek = referenceDate.getDay();
+                const diff = referenceDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+                startOfWeek.setDate(diff);
+    
+                const tasksToCreate: Omit<KanbanTask, 'id' | 'status'>[] = [];
+                selectedDays.forEach(dayIndexStr => {
+                    const dayIndex = parseInt(dayIndexStr, 10);
+                    const taskDate = new Date(startOfWeek);
+                    if (dayIndex === 0) {
+                        taskDate.setDate(startOfWeek.getDate() + 6);
+                    } else {
+                        taskDate.setDate(startOfWeek.getDate() + (dayIndex - 1));
+                    }
+                    
+                    taskDate.setMinutes(taskDate.getMinutes() - taskDate.getTimezoneOffset());
+                    tasksToCreate.push({
+                        ...commonData,
+                        date: taskDate.toISOString().split('T')[0],
+                    });
+                });
                 addMultipleTasks(tasksToCreate);
-
             } else {
-                addTask({ ...commonData, date: selectedDateStr });
+                addTask(commonData);
             }
         }
     };

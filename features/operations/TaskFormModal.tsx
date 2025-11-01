@@ -3,7 +3,7 @@ import { KanbanTask, Employee, Shift } from '../../types';
 import Modal from '../../components/Modal';
 import { TASK_DURATIONS } from '../../constants';
 
-export type NewTaskPayload = Omit<KanbanTask, 'id' | 'status' | 'date'> & {
+export type TaskSubmitPayload = Omit<KanbanTask, 'id' | 'status'> & {
     recurrence: 'once' | 'weekly';
     selectedDays?: string[];
 };
@@ -11,7 +11,7 @@ export type NewTaskPayload = Omit<KanbanTask, 'id' | 'status' | 'date'> & {
 interface TaskFormModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (task: NewTaskPayload | KanbanTask) => void;
+    onSave: (payload: TaskSubmitPayload, existingTaskId?: string) => void;
     task: KanbanTask | null;
     selectedDate: string;
 }
@@ -88,7 +88,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
         }
         const finalTime = `${String(h24).padStart(2, '0')}:${minute}`;
         
-        const commonPayload = {
+        const payload: TaskSubmitPayload = {
             text,
             employee,
             time: finalTime,
@@ -96,19 +96,12 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
             shift,
             zone,
             isCritical,
+            date: task?.date || selectedDate,
+            recurrence,
+            selectedDays,
         };
         
-        if (task) {
-            onSave({ ...task, ...commonPayload });
-        } else {
-            onSave({ 
-                ...commonPayload, 
-                date: selectedDate, // date is handled by parent for recurring
-                recurrence, 
-                selectedDays 
-            });
-        }
-        
+        onSave(payload, task?.id);
         onClose();
     };
 
@@ -119,16 +112,14 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
                     <label className="text-sm font-medium text-gray-600">Nombre de la Tarea</label>
                     <input type="text" value={text} onChange={e => setText(e.target.value)} required className="w-full p-2 border border-gray-300 rounded-md bg-gray-50" />
                 </div>
-                {!task && (
-                     <div className="form-group">
-                        <label className="text-sm font-medium text-gray-600 mb-2 block">Repetición</label>
-                        <div className="flex gap-2 bg-gray-200 rounded-lg p-1">
-                            <button type="button" onClick={() => setRecurrence('once')} className={`flex-1 p-2 rounded-md text-sm font-bold transition-colors ${recurrence === 'once' ? 'bg-white shadow-sm' : ''}`}>Una vez</button>
-                            <button type="button" onClick={() => setRecurrence('weekly')} className={`flex-1 p-2 rounded-md text-sm font-bold transition-colors ${recurrence === 'weekly' ? 'bg-white shadow-sm' : ''}`}>Semanalmente</button>
-                        </div>
-                     </div>
-                )}
-                {recurrence === 'weekly' && !task && (
+                <div className="form-group">
+                    <label className="text-sm font-medium text-gray-600 mb-2 block">Repetición</label>
+                    <div className="flex gap-2 bg-gray-200 rounded-lg p-1">
+                        <button type="button" onClick={() => setRecurrence('once')} className={`flex-1 p-2 rounded-md text-sm font-bold transition-colors ${recurrence === 'once' ? 'bg-white shadow-sm' : ''}`}>Una vez</button>
+                        <button type="button" onClick={() => setRecurrence('weekly')} className={`flex-1 p-2 rounded-md text-sm font-bold transition-colors ${recurrence === 'weekly' ? 'bg-white shadow-sm' : ''}`}>Semanalmente</button>
+                    </div>
+                </div>
+                {recurrence === 'weekly' && (
                     <div className="form-group">
                         <label className="text-sm font-medium text-gray-600 mb-2 block">Días de la semana</label>
                         <div className="flex justify-between gap-1">
