@@ -1,0 +1,137 @@
+import React, { useState, useMemo } from 'react';
+import { KanbanTask, Employee } from '../../types';
+import TaskFormModal, { NewTaskPayload } from './TaskFormModal';
+import { useKanban } from '../../services/useKanban';
+import Icon from '../../components/Icon';
+import WeekdaySelector from './WeekdaySelector';
+import DailyAgendaView from './DailyAgendaView';
+import CriticalTasksBar from './CriticalTasksBar';
+
+interface OperationsScreenProps {
+    kanbanHook: ReturnType<typeof useKanban>;
+    criticalTasks: { task: KanbanTask; diff: number }[];
+}
+
+const employees: Employee[] = ['Ali', 'Fer', 'Claudia', 'Admin'];
+
+const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, criticalTasks }) => {
+    const { tasks, addTask, addMultipleTasks, updateTask, updateTaskStatus } = kanbanHook;
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingTask, setEditingTask] = useState<KanbanTask | null>(null);
+    const [employeeFilter, setEmployeeFilter] = useState<Employee | 'All'>('All');
+
+    const handleEdit = (task: KanbanTask) => {
+        setEditingTask(task);
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setEditingTask(null);
+    };
+
+    const handleSaveTask = (formData: NewTaskPayload | KanbanTask) => {
+        if ('id' in formData) {
+            updateTask(formData as KanbanTask);
+        } else {
+            const { recurrence, selectedDays, ...commonData } = formData;
+
+            if (recurrence === 'weekly' && selectedDays && selectedDays.length > 0) {
+                // Find monday of the current week
+                const startOfWeek = new Date(selectedDate);
+                const dayOfWeek = selectedDate.getDay();
+                const diff = selectedDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+                startOfWeek.setDate(diff);
+
+                const tasksToCreate: Omit<KanbanTask, 'id' | 'status'>[] = [];
+                selectedDays.forEach(dayIndexStr => {
+                    const dayIndex = parseInt(dayIndexStr, 10); // 0=Sun, 1=Mon...
+                    const taskDate = new Date(startOfWeek);
+                     if (dayIndex === 0) { // Sunday
+                        taskDate.setDate(startOfWeek.getDate() + 6);
+                    } else { // Monday-Saturday
+                        taskDate.setDate(startOfWeek.getDate() + (dayIndex - 1));
+                    }
+                    
+                    taskDate.setMinutes(taskDate.getMinutes() - taskDate.getTimezoneOffset());
+                    tasksToCreate.push({
+                        ...commonData,
+                        date: taskDate.toISOString().split('T')[0],
+                    });
+                });
+                addMultipleTasks(tasksToCreate);
+
+            } else {
+                addTask({ ...commonData, date: selectedDateStr });
+            }
+        }
+    };
+
+    const selectedDateStr = useMemo(() => {
+        const d = new Date(selectedDate);
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        return d.toISOString().split('T')[0];
+    }, [selectedDate]);
+
+    const dailyTasks = useMemo(() => {
+        return tasks.filter(task => {
+            const isSameDay = task.date === selectedDateStr;
+            const matchesEmployee = employeeFilter === 'All' || task.employee === employeeFilter;
+            return isSameDay && matchesEmployee;
+        });
+    }, [tasks, selectedDateStr, employeeFilter]);
+    
+    return (
+        <div className="flex flex-col h-full bg-gray-50">
+            {criticalTasks.length > 0 && <CriticalTasksBar tasksWithDiff={criticalTasks} />}
+
+            <div className="operations-header flex flex-col p-4 border-b border-gray-200 gap-4 flex-shrink-0">
+                <div className="flex flex-col md:flex-row justify-between items-center w-full gap-4">
+                     <WeekdaySelector selectedDate={selectedDate} setSelectedDate={setSelectedDate} />
+                     <div className="flex gap-2 w-full md:w-auto">
+                        <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm w-full justify-center">
+                            <Icon name="plus-circle" size={16} />
+                            Añadir Tarea
+                        </button>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2 bg-gray-200 rounded-lg p-1 w-full overflow-x-auto">
+                    <button 
+                        onClick={() => setEmployeeFilter('All')}
+                        className={`px-3 py-1 text-sm font-bold rounded-md transition-colors ${employeeFilter === 'All' ? 'bg-white shadow-sm' : 'bg-transparent text-gray-600'}`}
+                    >
+                        Todos
+                    </button>
+                    {employees.map(emp => (
+                         <button 
+                            key={emp}
+                            onClick={() => setEmployeeFilter(emp)}
+                            className={`px-3 py-1 text-sm font-bold rounded-md transition-colors ${employeeFilter === emp ? 'bg-white shadow-sm' : 'bg-transparent text-gray-600'}`}
+                        >
+                            {emp}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            
+            <div className="flex-grow overflow-auto relative">
+                <DailyAgendaView 
+                    tasks={dailyTasks} 
+                    onEditTask={handleEdit} 
+                    onUpdateStatus={updateTaskStatus}
+                />
+            </div>
+
+            <TaskFormModal 
+                isOpen={isModalOpen} 
+                onClose={handleCloseModal} 
+                onSave={handleSaveTask}
+                task={editingTask}
+                selectedDate={selectedDateStr}
+            />
+        </div>
+    );
+};
+
+export default OperationsScreen;

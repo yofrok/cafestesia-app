@@ -1,0 +1,131 @@
+import React from 'react';
+import { Screen, KanbanTask, InventoryItem, ProductionProcess } from '../types';
+import Icon from './Icon';
+
+interface SidebarProps {
+    activeScreen: Screen;
+    setActiveScreen: (screen: Screen) => void;
+    processes: ProductionProcess[];
+    urgentTasks: { task: KanbanTask; diff: number }[];
+    shoppingListItems: InventoryItem[];
+    inProgressTasks: KanbanTask[];
+    isOpen: boolean;
+    onClose: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ activeScreen, setActiveScreen, processes, urgentTasks, shoppingListItems, inProgressTasks, isOpen, onClose }) => {
+
+    const handleNavClick = (screen: Screen) => {
+        setActiveScreen(screen);
+        onClose();
+    };
+    
+    const NavButton: React.FC<{ active: boolean, onClick: () => void, children: React.ReactNode }> = ({ active, onClick, children }) => {
+        const base = "w-full flex items-center gap-4 p-4 rounded-lg font-bold text-left cursor-pointer transition-all duration-200";
+        const classes = active ? `${base} bg-blue-600 text-white` : `${base} text-gray-500 hover:bg-gray-100 hover:text-gray-900`;
+        return <button onClick={onClick} className={classes}>{children}</button>;
+    };
+
+    const AlertWidget: React.FC<{ title: string; children: React.ReactNode; onClick: () => void; isAlarm?: boolean; }> = ({ title, children, onClick, isAlarm }) => (
+        <div className="mb-4">
+            <h3 className={`text-xs uppercase font-bold mb-2 px-2 ${isAlarm ? 'text-red-600 animate-pulse' : 'text-blue-600'}`}>{title}</h3>
+            <button
+                onClick={onClick}
+                className={`w-full text-left p-3 rounded-lg transition-colors border ${isAlarm ? 'bg-red-50 border-red-400 hover:bg-red-100' : 'bg-gray-100 border-gray-200 hover:bg-gray-200'}`}
+            >
+                {children}
+            </button>
+        </div>
+    );
+
+    const activeProcesses = processes.filter(p => p.state !== 'finished');
+    const isBakingRelated = activeScreen === Screen.Baking;
+
+    const sidebarClasses = `
+        sidebar-nav flex flex-col bg-white p-4 border-r border-gray-200 overflow-y-auto 
+        fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out 
+        md:relative md:w-auto md:translate-x-0
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+    `;
+
+    return (
+        <nav className={sidebarClasses}>
+            <header className="sidebar-header text-center mb-6 pt-4 flex-shrink-0">
+                <h1 className="text-2xl font-bold text-blue-600">Cafestesia</h1>
+                <span className="text-sm text-gray-500">Gestor v2.1 (React)</span>
+            </header>
+
+            <div className="flex-grow">
+                {activeProcesses.map(process => {
+                     const isAlarm = process.state === 'alarm';
+                     return (
+                        <AlertWidget
+                            key={process.id}
+                            title={isAlarm ? '¡Acción Requerida!' : 'En Producción'}
+                            onClick={() => handleNavClick(Screen.Baking)}
+                            isAlarm={isAlarm}
+                        >
+                            <div className="flex items-center gap-3 font-bold text-sm text-gray-800">
+                                <Icon name={isAlarm ? 'bell' : 'cake-slice'} className={isAlarm ? 'text-red-500' : 'text-green-600'} size={20} />
+                                <span>{process.name}</span>
+                            </div>
+                        </AlertWidget>
+                    )
+                })}
+
+                {inProgressTasks.length > 0 && (
+                    <AlertWidget title="Tareas en Progreso" onClick={() => handleNavClick(Screen.Operations)}>
+                        <div className="flex items-center gap-3 font-bold text-sm text-gray-800">
+                            <Icon name="play-circle" className="text-yellow-600" size={20} />
+                            <span>{inProgressTasks.length} tarea{inProgressTasks.length > 1 ? 's' : ''} activa{inProgressTasks.length > 1 ? 's' : ''}</span>
+                        </div>
+                    </AlertWidget>
+                )}
+
+
+                {urgentTasks.length > 0 && (
+                     <AlertWidget title="Operaciones Urgentes" onClick={() => handleNavClick(Screen.Operations)}>
+                        {urgentTasks.map(({ task, diff }) => (
+                            <div key={task.id} className="text-sm mb-2 last:mb-0">
+                                <p className="font-bold text-gray-800">{task.text}</p>
+                                <p className={`text-xs font-semibold ${diff <= 0 ? 'text-red-600 animate-pulse' : 'text-blue-600'}`}>
+                                    {task.time} {diff <= 0 ? '(¡AHORA!)' : `(en ${diff} min)`}
+                                </p>
+                            </div>
+                        ))}
+                    </AlertWidget>
+                )}
+
+                {shoppingListItems.length > 0 && (
+                    <AlertWidget title="Inventario Crítico" onClick={() => handleNavClick(Screen.Inventory)}>
+                        <div className="flex items-center gap-3 font-bold text-sm text-gray-800">
+                           <Icon name="shopping-cart" className="text-red-500" size={20} />
+                           <span>{shoppingListItems.length} producto{shoppingListItems.length > 1 ? 's' : ''} en la lista de compras</span>
+                        </div>
+                    </AlertWidget>
+                )}
+            </div>
+
+            <div className="nav-buttons flex flex-col gap-2 mt-auto flex-shrink-0">
+                <NavButton active={isBakingRelated} onClick={() => handleNavClick(Screen.Baking)}>
+                    <Icon name="cake-slice" size={20} />
+                    <span>Producción de Pan</span>
+                </NavButton>
+                <NavButton active={activeScreen === Screen.Operations} onClick={() => handleNavClick(Screen.Operations)}>
+                    <Icon name="clipboard-kanban" size={20} />
+                    <span>Operaciones</span>
+                </NavButton>
+                <NavButton active={activeScreen === Screen.Inventory} onClick={() => handleNavClick(Screen.Inventory)}>
+                    <Icon name="archive" size={20} />
+                    <span>Inventario</span>
+                </NavButton>
+                <NavButton active={activeScreen === Screen.Settings} onClick={() => handleNavClick(Screen.Settings)}>
+                    <Icon name="settings" size={20} />
+                    <span>Configuración</span>
+                </NavButton>
+            </div>
+        </nav>
+    );
+};
+
+export default Sidebar;

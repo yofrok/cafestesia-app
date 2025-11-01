@@ -1,0 +1,5 @@
+{
+  "name": "Cafestesia Operations Manager",
+  "description": "An integrated operations manager for a cafe, featuring a real-time baking assistant, a Kanban board for tasks, and a comprehensive inventory management system. Built with React and TypeScript.",
+  "requestFramePermissions": []
+}
