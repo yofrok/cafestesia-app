@@ -53,6 +53,12 @@ export type Shift = 'matutino' | 'pre-apertura' | 'cierre' | 'default';
 
 export type TaskStatus = 'todo' | 'inprogress' | 'done';
 
+export interface Subtask {
+    id: string;
+    text: string;
+    isCompleted: boolean;
+}
+
 export interface KanbanTask {
     id: string;
     text: string;
@@ -64,6 +70,7 @@ export interface KanbanTask {
     isCritical: boolean;
     zone: string;
     status: TaskStatus;
+    subtasks?: Subtask[];
 }
 
 export interface PurchaseRecord {

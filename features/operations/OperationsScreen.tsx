@@ -166,6 +166,7 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
                     tasks={dailyTasks} 
                     onEditTask={handleEdit} 
                     onUpdateStatus={updateTaskStatus}
+                    onUpdateTask={updateTask}
                 />
             </div>
 

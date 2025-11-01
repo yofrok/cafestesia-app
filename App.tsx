@@ -202,7 +202,7 @@ const App: React.FC = () => {
                             <div className="md:hidden w-8"></div> {/* Spacer to center title on mobile */}
                         </header>
                         <div className="flex-grow relative">
-                            <div className="absolute inset-0 overflow-y-auto">
+                            <div className="absolute inset-0 overflow-y-auto relative">
                                {renderScreen()}
                             </div>
                         </div>

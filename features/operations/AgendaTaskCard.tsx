@@ -6,6 +6,7 @@ interface AgendaTaskCardProps {
     task: KanbanTask;
     onUpdateStatus: (taskId: string, newStatus: TaskStatus) => void;
     onEdit: (task: KanbanTask) => void;
+    onViewSubtasks: () => void;
     style: React.CSSProperties;
 }
 
@@ -28,15 +29,18 @@ const getStatusStyles = (status: TaskStatus) => {
     }
 };
 
-const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, onEdit, style }) => {
+const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, onEdit, onViewSubtasks, style }) => {
     const { bg, border, text } = employeeColors[task.employee] || employeeColors.Admin;
     const statusStyles = getStatusStyles(task.status);
     
-    const handleStatusChange = () => {
+    const handleStatusChange = (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent opening subtask view
         if (task.status === 'todo') {
             onUpdateStatus(task.id, 'inprogress');
         } else if (task.status === 'inprogress') {
             onUpdateStatus(task.id, 'done');
+        } else if (task.status === 'done') {
+            onUpdateStatus(task.id, 'todo');
         }
     };
 
@@ -44,10 +48,14 @@ const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, o
     const endTime = new Date(startTime.getTime() + task.duration * 60000); // 60000 ms in a minute
     const formattedEndTime = endTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 
+    const totalSubtasks = task.subtasks?.length || 0;
+    const completedSubtasks = task.subtasks?.filter(st => st.isCompleted).length || 0;
+
     return (
         <div
             style={style}
-            className={`absolute rounded-lg p-2 flex gap-2 transition-all duration-300 ${bg} border-2 ${statusStyles} ${task.status === 'inprogress' ? border : 'border-transparent'}`}
+            onClick={onViewSubtasks}
+            className={`absolute rounded-lg p-2 flex gap-2 transition-all duration-300 cursor-pointer ${bg} border-2 ${statusStyles} ${task.status === 'inprogress' ? border : 'border-transparent'}`}
         >
             <div className={`flex-shrink-0 w-1 h-full ${border.replace('border-', 'bg-')} rounded-full`}></div>
             <div className="flex-grow flex flex-col min-w-0 min-h-0">
@@ -59,13 +67,22 @@ const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, o
                 </div>
                 <div className="flex items-center justify-between mt-1 flex-shrink-0">
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full bg-white/60 ${text}`}>{task.employee}</span>
-                     <button
-                        onClick={(e) => { e.stopPropagation(); onEdit(task); }}
-                        className={`p-1 rounded-full hover:bg-black/10 transition-colors ${text}`}
-                        title="Editar Tarea"
-                    >
-                        <Icon name="pencil" size={14} />
-                    </button>
+                     
+                    <div className="flex items-center gap-2">
+                        {totalSubtasks > 0 && (
+                            <div className={`flex items-center gap-1 text-xs font-semibold ${text}`}>
+                                <Icon name="list" size={14} />
+                                <span>{completedSubtasks}/{totalSubtasks}</span>
+                            </div>
+                        )}
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onEdit(task); }}
+                            className={`p-1 rounded-full hover:bg-black/10 transition-colors ${text}`}
+                            title="Editar Tarea"
+                        >
+                            <Icon name="pencil" size={14} />
+                        </button>
+                    </div>
                 </div>
             </div>
              <div className="flex-shrink-0">

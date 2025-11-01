@@ -2,11 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { KanbanTask, TaskStatus } from '../../types';
 import { TIMELINE_START_HOUR, TIMELINE_END_HOUR } from '../../constants';
 import AgendaTaskCard from './AgendaTaskCard';
+import SubTaskOverlay from './SubtaskOverlay';
 
 interface DailyAgendaViewProps {
     tasks: KanbanTask[];
     onUpdateStatus: (taskId: string, newStatus: TaskStatus) => void;
     onEditTask: (task: KanbanTask) => void;
+    onUpdateTask: (updatedTask: KanbanTask) => void;
 }
 
 const EXPANDED_HOUR_HEIGHT_PX = 120; // Height for hours with tasks
@@ -21,8 +23,9 @@ interface TaskLayout {
     zIndex: number;
 }
 
-const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus, onEditTask }) => {
+const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus, onEditTask, onUpdateTask }) => {
     const [now, setNow] = useState(new Date());
+    const [taskForSubtasks, setTaskForSubtasks] = useState<KanbanTask | null>(null);
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date()), 60000);
@@ -123,8 +126,8 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
     const currentTimePosition = timeToPosition(`${now.getHours()}:${now.getMinutes()}`);
     
     return (
-        <div className="p-4 md:p-6 h-full">
-            <div className="relative" style={{ height: `${totalHeight}px` }}>
+        <div className="p-4 md:p-6 h-full relative">
+            <div className="relative z-10" style={{ height: `${totalHeight}px` }}>
                 {/* Hour markers */}
                 {hourLayouts.map(({ hour, top, height }) => (
                     <div key={hour} className="absolute w-full" style={{ top: `${top}px`, height: `${height}px` }}>
@@ -150,6 +153,7 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
                            task={task}
                            onUpdateStatus={onUpdateStatus}
                            onEdit={onEditTask}
+                           onViewSubtasks={() => setTaskForSubtasks(task)}
                            style={{
                                top: `${top}px`,
                                height: `${Math.max(height - 4, 80)}px`,
@@ -161,6 +165,13 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
                    ))}
                 </div>
             </div>
+            {taskForSubtasks && (
+                <SubTaskOverlay
+                    task={taskForSubtasks}
+                    onClose={() => setTaskForSubtasks(null)}
+                    onUpdateTask={onUpdateTask}
+                />
+            )}
         </div>
     );
 };

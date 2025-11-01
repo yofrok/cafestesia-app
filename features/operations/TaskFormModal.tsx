@@ -1,7 +1,8 @@
-import React, { useState, FormEvent, useEffect } from 'react';
-import { KanbanTask, Employee, Shift } from '../../types';
+import React, { useState, FormEvent, useEffect, KeyboardEvent } from 'react';
+import { KanbanTask, Employee, Shift, Subtask } from '../../types';
 import Modal from '../../components/Modal';
 import { TASK_DURATIONS } from '../../constants';
+import Icon from '../../components/Icon';
 
 export type TaskSubmitPayload = Omit<KanbanTask, 'id' | 'status'> & {
     recurrence: 'once' | 'weekly';
@@ -34,6 +35,8 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
     const [isCritical, setIsCritical] = useState(false);
     const [recurrence, setRecurrence] = useState<'once' | 'weekly'>('once');
     const [selectedDays, setSelectedDays] = useState<string[]>([]);
+    const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+    const [newSubtaskText, setNewSubtaskText] = useState('');
 
     useEffect(() => {
         if (isOpen) {
@@ -57,6 +60,8 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
             setIsCritical(task?.isCritical || false);
             setRecurrence('once');
             setSelectedDays([]);
+            setSubtasks(task?.subtasks || []);
+            setNewSubtaskText('');
         }
     }, [isOpen, task]);
 
@@ -67,6 +72,29 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
                 : [...prev, dayValue]
         );
     };
+    
+    const handleAddSubtask = () => {
+        if (newSubtaskText.trim() === '') return;
+        const newSubtask: Subtask = {
+            id: `sub-${Date.now()}`,
+            text: newSubtaskText.trim(),
+            isCompleted: false,
+        };
+        setSubtasks([...subtasks, newSubtask]);
+        setNewSubtaskText('');
+    };
+
+    const handleSubtaskKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAddSubtask();
+        }
+    };
+
+    const handleDeleteSubtask = (subtaskId: string) => {
+        setSubtasks(subtasks.filter(st => st.id !== subtaskId));
+    };
+
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
@@ -99,6 +127,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
             date: task?.date || selectedDate,
             recurrence,
             selectedDays,
+            subtasks,
         };
         
         onSave(payload, task?.id);
@@ -107,7 +136,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={task ? "Editar Tarea" : "Añadir Nueva Tarea"}>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-h-[80vh] overflow-y-auto pr-2">
                 <div className="form-group">
                     <label className="text-sm font-medium text-gray-600">Nombre de la Tarea</label>
                     <input type="text" value={text} onChange={e => setText(e.target.value)} required className="w-full p-2 border border-gray-300 rounded-md bg-gray-50" />
@@ -180,11 +209,42 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
                     <label className="text-sm font-medium text-gray-600">Zona (Opcional)</label>
                     <input type="text" value={zone} onChange={e => setZone(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50" />
                 </div>
+
+                <div className="form-group mt-2">
+                    <label className="text-sm font-medium text-gray-600 mb-2 block">Subtareas</label>
+                    <div className="bg-gray-100 p-3 rounded-lg">
+                        {subtasks.length > 0 && (
+                            <ul className="space-y-2 mb-3">
+                                {subtasks.map(st => (
+                                    <li key={st.id} className="flex items-center justify-between bg-white p-2 rounded">
+                                        <span className="text-sm text-gray-700">{st.text}</span>
+                                        <button type="button" onClick={() => handleDeleteSubtask(st.id)} className="p-1 text-gray-400 hover:text-red-600">
+                                            <Icon name="trash-2" size={16} />
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={newSubtaskText}
+                                onChange={e => setNewSubtaskText(e.target.value)}
+                                onKeyDown={handleSubtaskKeyDown}
+                                placeholder="Añadir una subtarea..."
+                                className="w-full p-2 border border-gray-300 rounded-md bg-white text-sm"
+                            />
+                            <button type="button" onClick={handleAddSubtask} className="py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 text-sm">Añadir</button>
+                        </div>
+                    </div>
+                </div>
+
+
                 <div className="flex items-center gap-2 mt-2">
                     <input type="checkbox" id="task-critical" checked={isCritical} onChange={e => setIsCritical(e.target.checked)} className="w-4 h-4" />
                     <label htmlFor="task-critical" className="text-sm font-medium text-gray-600">Es una tarea crítica</label>
                 </div>
-                <div className="flex justify-end gap-4 mt-4">
+                <div className="flex justify-end gap-4 mt-4 pt-4 border-t sticky bottom-0 bg-white">
                     <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">Cancelar</button>
                     <button type="submit" className="py-2 px-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Guardar Cambios</button>
                 </div>
