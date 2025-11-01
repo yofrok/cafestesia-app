@@ -88,14 +88,12 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
                 col++;
             }
             
-            const maxCols = Math.max(col + 1, ...collidingTasks.map(l => l.width))
-            
             layouts.push({ task, top, height, left: col, width: 1, zIndex: col });
         }
         
         // Post-process to adjust width and left based on collisions
-         return layouts.map((layout, i, allLayouts) => {
-            const { task, top } = layout;
+         return layouts.map((layout, _, allLayouts) => {
+            const { task } = layout;
             const taskStart = new Date(`${task.date}T${task.time}`).getTime();
             const taskEnd = taskStart + task.duration * 60000;
 
