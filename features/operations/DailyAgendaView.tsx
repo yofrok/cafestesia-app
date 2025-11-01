@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { KanbanTask, TaskStatus } from '../../types';
 import { TIMELINE_START_HOUR, TIMELINE_END_HOUR } from '../../constants';
 import AgendaTaskCard from './AgendaTaskCard';
-import SubTaskOverlay from './SubtaskOverlay';
+import SubTaskOverlay from './SubTaskOverlay';
 
 interface DailyAgendaViewProps {
     tasks: KanbanTask[];
@@ -31,6 +31,21 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
         const timer = setInterval(() => setNow(new Date()), 60000);
         return () => clearInterval(timer);
     }, []);
+
+    // This effect synchronizes the currently open subtask overlay with the main tasks list.
+    // When a subtask is updated, the `tasks` prop changes, and this effect finds the
+    // corresponding updated task to refresh the overlay's view instantly.
+    useEffect(() => {
+        if (taskForSubtasks) {
+            const updatedTask = tasks.find(t => t.id === taskForSubtasks.id);
+            if (updatedTask) {
+                setTaskForSubtasks(updatedTask);
+            } else {
+                // If the task is no longer in the list (e.g., deleted), close the overlay.
+                setTaskForSubtasks(null);
+            }
+        }
+    }, [tasks]);
 
     const tasksByHour = useMemo(() => {
         const byHour: Record<number, boolean> = {};
