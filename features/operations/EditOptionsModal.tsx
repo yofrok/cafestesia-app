@@ -1,6 +1,5 @@
 import React from 'react';
 import Modal from '../../components/Modal';
-import Icon from '../../components/Icon';
 
 interface EditOptionsModalProps {
     isOpen: boolean;

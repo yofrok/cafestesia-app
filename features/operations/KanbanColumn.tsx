@@ -1,9 +1,6 @@
-import React, { useMemo } from 'react';
-import { KanbanTask, TaskStatus, User } from '../../types';
-import KanbanCard from './KanbanCard';
+import React from 'react';
+import { KanbanTask, TaskStatus } from '../../types';
 import Icon from '../../components/Icon';
-
-type TimeStatus = 'due' | 'imminent' | 'normal';
 
 interface KanbanColumnProps {
     title: string;
@@ -11,22 +8,10 @@ interface KanbanColumnProps {
     status: TaskStatus;
     tasks: KanbanTask[];
     onDrop: (status: TaskStatus) => void;
-    onDragStart: (taskId: string) => void;
-    updateTaskStatus: (taskId: string, newStatus: TaskStatus) => void;
-    timeAwareTasks: Record<string, { diff: number; status: TimeStatus }>;
-    onEdit: (task: KanbanTask) => void;
-    users: User[];
 }
 
-const KanbanColumn: React.FC<KanbanColumnProps> = ({ title, icon, status, tasks, onDrop, onDragStart, updateTaskStatus, timeAwareTasks, onEdit, users }) => {
+const KanbanColumn: React.FC<KanbanColumnProps> = ({ title, icon, status, tasks, onDrop }) => {
     
-    const userColorMap = useMemo(() => {
-        return users.reduce((acc, user) => {
-            acc[user.name] = user.color;
-            return acc;
-        }, {} as Record<string, string>);
-    }, [users]);
-
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
         e.preventDefault();
     };
@@ -54,8 +39,6 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ title, icon, status, tasks,
                     if (showShiftHeader) {
                         lastShift = task.shift;
                     }
-                    const timeStatus = timeAwareTasks[task.id]?.status ?? 'normal';
-                    const userColor = userColorMap[task.employee] || '#9ca3af';
 
                     return (
                         <React.Fragment key={task.id}>
@@ -64,6 +47,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ title, icon, status, tasks,
                                     Turno {task.shift.replace('-', ' ')}
                                 </h4>
                             )}
+                            {/* 
                             <KanbanCard 
                                 task={task} 
                                 onDragStart={onDragStart}
@@ -73,8 +57,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({ title, icon, status, tasks,
                                     updateTaskStatus(task.id, nextStatus);
                                 }}
                                 onEdit={onEdit}
-                                userColor={userColor}
                             />
+                             */}
                         </React.Fragment>
                     );
                  })}
