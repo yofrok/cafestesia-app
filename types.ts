@@ -75,6 +75,7 @@ export interface KanbanTask {
     zone: string;
     status: TaskStatus;
     subtasks?: Subtask[];
+    recurrenceId?: string;
 }
 
 export interface PurchaseRecord {

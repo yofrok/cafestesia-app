@@ -1,19 +1,10 @@
 import { useState, useEffect } from 'react';
 import { User } from '../types';
 import { db } from './firebase';
-import { 
-    collection, 
-    query, 
-    orderBy, 
-    onSnapshot, 
-    writeBatch, 
-    doc, 
-    addDoc, 
-    updateDoc, 
-    deleteDoc 
-} from 'firebase/firestore';
+// FIX: Use namespace import for firestore to fix module resolution issues.
+import * as firestore from 'firebase/firestore';
 
-const usersCollectionRef = collection(db, 'users');
+const usersCollectionRef = firestore.collection(db, 'users');
 
 const MOCK_USERS: Omit<User, 'id'>[] = [
     { name: 'Ali', color: '#ec4899' },     // pink-500
@@ -24,9 +15,9 @@ const MOCK_USERS: Omit<User, 'id'>[] = [
 
 const seedInitialData = async () => {
     console.log("Seeding initial users to Firestore...");
-    const batch = writeBatch(db);
+    const batch = firestore.writeBatch(db);
     MOCK_USERS.forEach(user => {
-        const newDocRef = doc(usersCollectionRef);
+        const newDocRef = firestore.doc(usersCollectionRef);
         batch.set(newDocRef, user);
     });
     await batch.commit();
@@ -37,8 +28,8 @@ export const useUsers = () => {
     const [users, setUsers] = useState<User[]>([]);
 
     useEffect(() => {
-        const q = query(usersCollectionRef, orderBy("name"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const q = firestore.query(usersCollectionRef, firestore.orderBy("name"));
+        const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
             if (snapshot.empty && MOCK_USERS.length > 0) {
                 seedInitialData();
                 return;
@@ -57,7 +48,7 @@ export const useUsers = () => {
 
     const addUser = async (userData: Omit<User, 'id'>) => {
         try {
-            await addDoc(usersCollectionRef, userData);
+            await firestore.addDoc(usersCollectionRef, userData);
         } catch (error) {
             console.error("Error adding user:", error);
         }
@@ -65,18 +56,18 @@ export const useUsers = () => {
 
     const updateUser = async (userData: User) => {
         const { id, ...data } = userData;
-        const userRef = doc(db, 'users', id);
+        const userRef = firestore.doc(db, 'users', id);
         try {
-            await updateDoc(userRef, data);
+            await firestore.updateDoc(userRef, data);
         } catch (error) {
             console.error("Error updating user:", error);
         }
     };
 
     const deleteUser = async (userId: string) => {
-        const userRef = doc(db, 'users', userId);
+        const userRef = firestore.doc(db, 'users', userId);
         try {
-            await deleteDoc(userRef);
+            await firestore.deleteDoc(userRef);
         } catch (error) {
             console.error("Error deleting user:", error);
         }

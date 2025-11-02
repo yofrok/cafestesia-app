@@ -1,8 +1,9 @@
 import React, { useState, FormEvent, useEffect, KeyboardEvent } from 'react';
 import { KanbanTask, Shift, Subtask, User } from '../../types';
 import Modal from '../../components/Modal';
-import { TASK_DURATIONS, OPERATIONS_PIN } from '../../constants';
+import { TASK_DURATIONS } from '../../constants';
 import Icon from '../../components/Icon';
+import { EditMode } from './OperationsScreen';
 
 export type TaskSubmitPayload = Omit<KanbanTask, 'id' | 'status'> & {
     recurrence: 'once' | 'weekly';
@@ -14,10 +15,13 @@ interface TaskFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (payload: TaskSubmitPayload, existingTaskId?: string) => void;
-    onDelete: (taskId: string) => void;
+    onDelete: (task: KanbanTask) => void;
     task: KanbanTask | null;
     selectedDate: string;
     users: User[];
+    editMode: EditMode;
+    isSaving: boolean;
+    allTasks: KanbanTask[];
 }
 
 const daysOfWeek = [
@@ -26,7 +30,7 @@ const daysOfWeek = [
     { label: 'D', value: '0' },
 ];
 
-const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, onDelete, task, selectedDate, users }) => {
+const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, onDelete, task, selectedDate, users, editMode, isSaving, allTasks }) => {
     const [text, setText] = useState('');
     const [employee, setEmployee] = useState<string>('');
     const [hour, setHour] = useState('08');
@@ -41,11 +45,8 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
     const [recurrenceWeeks, setRecurrenceWeeks] = useState('4');
     const [subtasks, setSubtasks] = useState<Subtask[]>([]);
     const [newSubtaskText, setNewSubtaskText] = useState('');
-    
-    // State for delete confirmation
-    const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-    const [pinInput, setPinInput] = useState('');
-    const [pinError, setPinError] = useState('');
+    const [date, setDate] = useState(selectedDate);
+
 
     useEffect(() => {
         if (isOpen) {
@@ -53,6 +54,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
 
             setText(task?.text || '');
             setEmployee(task?.employee || defaultEmployee);
+            setDate(task?.date || selectedDate);
             
             const taskTime = task?.time || '08:00';
             const [h, m] = taskTime.split(':').map(Number);
@@ -69,18 +71,31 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
             setShift(task?.shift || 'pre-apertura');
             setZone(task?.zone || '');
             setIsCritical(task?.isCritical || false);
-            setRecurrence('once');
-            setSelectedDays([]);
-            setRecurrenceWeeks('4');
             setSubtasks(task?.subtasks || []);
             setNewSubtaskText('');
-            
-            // Reset delete confirmation state
-            setIsConfirmingDelete(false);
-            setPinInput('');
-            setPinError('');
+
+            if (task && editMode === 'future' && task.recurrenceId) {
+                setRecurrence('weekly');
+                // Find all tasks in the same series to pre-select the days
+                const seriesTasks = allTasks.filter(t => t.recurrenceId === task.recurrenceId);
+                const daysInSeries = new Set<string>();
+                seriesTasks.forEach(seriesTask => {
+                    const taskDate = new Date(seriesTask.date);
+                    // The date string is "YYYY-MM-DD", which JS interprets as UTC midnight.
+                    // To get the correct local day, we need to account for the timezone offset.
+                    taskDate.setMinutes(taskDate.getMinutes() + taskDate.getTimezoneOffset());
+                    const dayOfWeek = taskDate.getDay(); // Sunday: 0, Monday: 1, etc.
+                    daysInSeries.add(String(dayOfWeek));
+                });
+                setSelectedDays(Array.from(daysInSeries));
+            } else {
+                setRecurrence('once');
+                setSelectedDays([]);
+            }
+            setRecurrenceWeeks('4');
+
         }
-    }, [isOpen, task, users]);
+    }, [isOpen, task, users, selectedDate, editMode, allTasks]);
 
     const handleDayToggle = (dayValue: string) => {
         setSelectedDays(prev =>
@@ -120,7 +135,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
             return;
         }
         
-        if (recurrence === 'weekly' && selectedDays.length === 0) {
+        if (recurrence === 'weekly' && selectedDays.length === 0 && editMode !== 'single') {
             alert('Por favor selecciona al menos un día para la tarea recurrente.');
             return;
         }
@@ -141,7 +156,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
             shift,
             zone,
             isCritical,
-            date: task?.date || selectedDate,
+            date: date,
             recurrence,
             selectedDays,
             recurrenceWeeks,
@@ -149,40 +164,47 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
         };
         
         onSave(payload, task?.id);
-        onClose();
     };
     
-    const handleConfirmDelete = () => {
-        if (pinInput === OPERATIONS_PIN) {
-            if (task) {
-                onDelete(task.id);
-            }
-            onClose();
-        } else {
-            setPinError('PIN incorrecto. Inténtalo de nuevo.');
-            setPinInput('');
-        }
+    const handleDelete = () => {
+        if (task) onDelete(task);
     };
 
     const isEditing = !!task;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={task ? "Editar Tarea" : "Añadir Nueva Tarea"}>
-            <div className="relative">
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-h-[80vh] overflow-y-auto pr-2">
+        <Modal isOpen={isOpen} onClose={isSaving ? () => {} : onClose} title={task ? "Editar Tarea" : "Añadir Nueva Tarea"}>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-h-[80vh] overflow-y-auto pr-2">
+                <fieldset disabled={isSaving}>
                     <div className="form-group">
                         <label className="text-sm font-medium text-gray-600">Nombre de la Tarea</label>
                         <input type="text" value={text} onChange={e => setText(e.target.value)} required className="w-full p-2 border border-gray-300 rounded-md bg-gray-50" />
                     </div>
+                    
+                     {editMode === 'single' && (
+                        <div className="form-group mt-4">
+                            <label className="text-sm font-medium text-gray-600">Fecha</label>
+                             <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50" />
+                        </div>
+                    )}
 
-                    <fieldset disabled={isEditing}>
+                    <fieldset disabled={(isEditing && editMode !== 'future')} className="mt-4">
                         <div className="form-group">
                             <label className="text-sm font-medium text-gray-600 mb-2 block">Repetición</label>
                             <div className="flex gap-2 bg-gray-200 rounded-lg p-1">
                                 <button type="button" onClick={() => setRecurrence('once')} className={`flex-1 p-2 rounded-md text-sm font-bold transition-colors ${recurrence === 'once' ? 'bg-white shadow-sm' : ''}`}>Una vez</button>
                                 <button type="button" onClick={() => setRecurrence('weekly')} className={`flex-1 p-2 rounded-md text-sm font-bold transition-colors ${recurrence === 'weekly' ? 'bg-white shadow-sm' : ''}`}>Semanalmente</button>
                             </div>
-                             {isEditing && <p className="text-xs text-gray-500 mt-1">La repetición no se puede cambiar en una tarea existente.</p>}
+                             {isEditing && editMode === 'single' && <p className="text-xs text-gray-500 mt-1">La repetición no se puede cambiar al editar una sola instancia.</p>}
+                             {isEditing && editMode === 'future' && (
+                                <div className="mt-2 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 text-sm rounded-r-lg flex items-start gap-3">
+                                    <Icon name="alert-triangle" size={20} className="flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="font-bold">Atención</p>
+                                        <p>Cambiar la repetición reemplazará todas las futuras tareas de esta serie con un nuevo patrón.</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                         {recurrence === 'weekly' && (
                             <div className="flex flex-col gap-4 mt-4">
@@ -213,7 +235,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
                         )}
                     </fieldset>
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4 mt-4">
                          <div className="form-group">
                             <label className="text-sm font-medium text-gray-600">Empleado</label>
                             <select value={employee} onChange={e => setEmployee(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50">
@@ -229,7 +251,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
                             </select>
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4 mt-4">
                         <div className="form-group">
                             <label className="text-sm font-medium text-gray-600">Hora</label>
                             <div className="flex gap-1">
@@ -255,7 +277,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
                             </select>
                         </div>
                     </div>
-                     <div className="form-group">
+                     <div className="form-group mt-4">
                         <label className="text-sm font-medium text-gray-600">Zona (Opcional)</label>
                         <input type="text" value={zone} onChange={e => setZone(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50" />
                     </div>
@@ -294,47 +316,30 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
                         <input type="checkbox" id="task-critical" checked={isCritical} onChange={e => setIsCritical(e.target.checked)} className="w-4 h-4" />
                         <label htmlFor="task-critical" className="text-sm font-medium text-gray-600">Es una tarea crítica</label>
                     </div>
-                    <div className="flex justify-between items-center mt-4 pt-4 border-t sticky bottom-0 bg-white">
-                        <div>
-                           {task && (
-                               <button type="button" onClick={() => setIsConfirmingDelete(true)} className="py-2 px-4 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">
-                                   Eliminar Tarea
-                               </button>
-                           )}
-                        </div>
-                        <div className="flex gap-4">
-                            <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">Cancelar</button>
-                            <button type="submit" className="py-2 px-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Guardar Cambios</button>
-                        </div>
+                </fieldset>
+                <div className="flex justify-between items-center mt-4 pt-4 border-t sticky bottom-0 bg-white">
+                    <div>
+                       {task && (
+                           <button type="button" onClick={handleDelete} disabled={isSaving} className="py-2 px-4 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 disabled:bg-red-400">
+                               Eliminar Tarea
+                           </button>
+                       )}
                     </div>
-                </form>
-
-                {isConfirmingDelete && (
-                    <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex justify-center items-center z-10">
-                        <div className="bg-white p-6 rounded-lg shadow-lg border border-gray-200 w-full max-w-sm text-center">
-                            <h4 className="font-bold text-lg text-gray-800">Confirmar Eliminación</h4>
-                            <p className="text-sm text-gray-600 mt-2 mb-4">Para confirmar, introduce el PIN de operaciones. Esta acción no se puede deshacer.</p>
-                            <input
-                                type="password"
-                                value={pinInput}
-                                onChange={e => { setPinInput(e.target.value); setPinError(''); }}
-                                placeholder="PIN de Seguridad"
-                                autoFocus
-                                className="w-full p-2 border border-gray-300 rounded-md text-center"
-                            />
-                            {pinError && <p className="text-xs text-red-600 mt-1">{pinError}</p>}
-                            <div className="flex gap-4 mt-4">
-                                <button onClick={() => setIsConfirmingDelete(false)} className="flex-1 py-2 px-4 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">
-                                    Cancelar
-                                </button>
-                                <button onClick={handleConfirmDelete} className="flex-1 py-2 px-4 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">
-                                    Confirmar
-                                </button>
-                            </div>
-                        </div>
+                    <div className="flex gap-4">
+                        <button type="button" onClick={onClose} disabled={isSaving} className="py-2 px-4 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 disabled:bg-gray-300">Cancelar</button>
+                        <button type="submit" disabled={isSaving} className="py-2 px-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 w-36 flex items-center justify-center disabled:bg-blue-400">
+                           {isSaving ? (
+                                <>
+                                    <Icon name="refresh-cw" className="animate-spin mr-2" size={16} />
+                                    Guardando...
+                                </>
+                            ) : (
+                                'Guardar Cambios'
+                            )}
+                        </button>
                     </div>
-                )}
-            </div>
+                </div>
+            </form>
         </Modal>
     );
 };

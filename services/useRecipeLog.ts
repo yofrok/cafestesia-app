@@ -1,22 +1,17 @@
 import { useState, useEffect } from 'react';
 import { RecipeFeedback } from '../types';
 import { db } from './firebase';
-import { 
-    collection, 
-    query, 
-    orderBy, 
-    onSnapshot, 
-    addDoc 
-} from 'firebase/firestore';
+// FIX: Use namespace import for firestore to fix module resolution issues.
+import * as firestore from 'firebase/firestore';
 
-const recipeFeedbackCollectionRef = collection(db, 'recipeFeedback');
+const recipeFeedbackCollectionRef = firestore.collection(db, 'recipeFeedback');
 
 export const useRecipeLog = () => {
     const [feedbackLog, setFeedbackLog] = useState<RecipeFeedback[]>([]);
 
     useEffect(() => {
-        const q = query(recipeFeedbackCollectionRef, orderBy("date", "desc"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const q = firestore.query(recipeFeedbackCollectionRef, firestore.orderBy("date", "desc"));
+        const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
             const feedbackData = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
@@ -31,7 +26,7 @@ export const useRecipeLog = () => {
 
     const addFeedback = async (feedbackData: Omit<RecipeFeedback, 'id' | 'date'>) => {
         try {
-            await addDoc(recipeFeedbackCollectionRef, {
+            await firestore.addDoc(recipeFeedbackCollectionRef, {
                 ...feedbackData,
                 date: new Date().toISOString(),
             });

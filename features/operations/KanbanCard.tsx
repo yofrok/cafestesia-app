@@ -1,78 +1,92 @@
-import React from 'react';
-import { KanbanTask } from '../../types';
-import Icon from '../../components/Icon';
+import React, { useState, useEffect, FormEvent } from 'react';
+import { User } from '../../types';
+import Modal from '../../components/Modal';
 
-type TimeStatus = 'due' | 'imminent' | 'normal';
-
-interface KanbanCardProps {
-    task: KanbanTask;
-    onDragStart: (taskId: string) => void;
-    onCardClick: () => void;
-    timeStatus: TimeStatus;
-    onEdit: (task: KanbanTask) => void;
-    userColor: string; // Dynamic color prop
+interface UserFormModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (user: Omit<User, 'id'> | User) => void;
+    onDelete: (userId: string) => void;
+    user: User | null;
 }
 
-const KanbanCard: React.FC<KanbanCardProps> = ({ task, onDragStart, onCardClick, timeStatus, onEdit, userColor }) => {
+const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, onDelete, user }) => {
+    const [name, setName] = useState('');
+    const [color, setColor] = useState('#CCCCCC');
     
-    const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-        onDragStart(task.id);
-        e.dataTransfer.setData('text/plain', task.id);
+    useEffect(() => {
+        if (isOpen) {
+            setName(user?.name || '');
+            setColor(user?.color || '#CCCCCC');
+        }
+    }, [isOpen, user]);
+
+    const handleSubmit = (e: FormEvent) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+
+        const userData = { name: name.trim(), color };
+        if (user) {
+            onSave({ ...userData, id: user.id });
+        } else {
+            onSave(userData);
+        }
+        onClose();
     };
 
-    const getBorderClass = () => {
-        if (task.status !== 'todo') return 'border-gray-200';
-        switch (timeStatus) {
-            case 'due':
-                return 'animate-pulse-red';
-            case 'imminent':
-                return 'animate-pulse-yellow';
-            default:
-                return 'border-gray-200';
+    const handleDelete = () => {
+        if (user && window.confirm(`¿Estás seguro de que quieres eliminar a "${user.name}"? Esto no se puede deshacer.`)) {
+            onDelete(user.id);
+            onClose();
         }
     };
-
+    
     return (
-        <div
-            draggable
-            onDragStart={handleDragStart}
-            onClick={onCardClick}
-            className={`bg-white rounded-lg p-4 cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-shadow border-2 relative ${getBorderClass()}`}
-        >
-            <div className="flex flex-col gap-2 pr-6">
-                <span className="text-xs text-gray-500 font-semibold">{task.time}</span>
-                <span className="font-medium">{task.text}</span>
-                <div className="flex flex-wrap gap-2 items-center mt-2">
-                    <span 
-                        className="text-xs font-bold text-white px-2 py-0.5 rounded-full"
-                        style={{ backgroundColor: userColor }}
-                    >
-                        {task.employee}
-                    </span>
-                    {task.isCritical && (
-                        <span className="flex items-center gap-1 text-xs font-semibold text-red-600">
-                            <Icon name="alert-triangle" size={14} /> Crítico
-                        </span>
-                    )}
-                    {task.zone && (
-                        <span className="flex items-center gap-1 text-xs font-semibold text-blue-600">
-                           <Icon name="map-pin" size={14} /> {task.zone}
-                        </span>
-                    )}
+        <Modal isOpen={isOpen} onClose={onClose} title={user ? "Editar Usuario" : "Añadir Usuario"}>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Nombre del Usuario</label>
+                    <input 
+                        type="text" 
+                        value={name} 
+                        onChange={e => setName(e.target.value)} 
+                        required 
+                        autoFocus
+                        className="w-full p-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
                 </div>
-            </div>
-            <button
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit(task);
-                }}
-                className="absolute top-2 right-2 p-1 text-gray-400 hover:text-blue-600 transition-colors rounded-full hover:bg-gray-100"
-                title="Editar Tarea"
-            >
-                <Icon name="pencil" size={16} />
-            </button>
-        </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Color de Etiqueta</label>
+                    <div className="flex items-center gap-3">
+                         <input 
+                            type="color" 
+                            value={color} 
+                            onChange={e => setColor(e.target.value)} 
+                            className="w-12 h-10 p-1 border border-gray-300 rounded-md cursor-pointer"
+                        />
+                        <input 
+                            type="text" 
+                            value={color}
+                            onChange={e => setColor(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-md bg-gray-50 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                </div>
+                
+                <div className="flex justify-between items-center mt-4">
+                    <div>
+                        {user && (
+                            <button type="button" onClick={handleDelete} className="py-2 px-4 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">Eliminar</button>
+                        )}
+                    </div>
+                    <div className="flex gap-4">
+                        <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">Cancelar</button>
+                        <button type="submit" className="py-2 px-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Guardar</button>
+                    </div>
+                </div>
+            </form>
+        </Modal>
     );
 };
 
-export default KanbanCard;
+export default UserFormModal;

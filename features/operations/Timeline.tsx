@@ -1,74 +1,92 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { KanbanTask, User } from '../../types';
-import { TIMELINE_START_HOUR, TIMELINE_END_HOUR } from '../../constants';
+import React, { useState, useEffect, FormEvent } from 'react';
+import { User } from '../../types';
+import Modal from '../../components/Modal';
 
-interface TimelineProps {
-    tasks: KanbanTask[];
-    users: User[];
+interface UserFormModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (user: Omit<User, 'id'> | User) => void;
+    onDelete: (userId: string) => void;
+    user: User | null;
 }
 
-const HOUR_HEIGHT_PX = 60; // 60px per hour
-
-const timeToPosition = (time: string): number => {
-    const [hours, minutes] = time.split(':').map(Number);
-    const hoursFromStart = hours - TIMELINE_START_HOUR;
-    return (hoursFromStart * HOUR_HEIGHT_PX) + (minutes / 60 * HOUR_HEIGHT_PX);
-};
-
-const Timeline: React.FC<TimelineProps> = ({ tasks, users }) => {
-    const [now, setNow] = useState(new Date());
-
-    const userColorMap = useMemo(() => {
-        return users.reduce((acc, user) => {
-            acc[user.name] = user.color;
-            return acc;
-        }, {} as Record<string, string>);
-    }, [users]);
-
-
+const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, onDelete, user }) => {
+    const [name, setName] = useState('');
+    const [color, setColor] = useState('#CCCCCC');
+    
     useEffect(() => {
-        const timer = setInterval(() => setNow(new Date()), 60000); // Update every minute
-        return () => clearInterval(timer);
-    }, []);
+        if (isOpen) {
+            setName(user?.name || '');
+            setColor(user?.color || '#CCCCCC');
+        }
+    }, [isOpen, user]);
 
-    const hours = Array.from({ length: TIMELINE_END_HOUR - TIMELINE_START_HOUR + 1 }, (_, i) => TIMELINE_START_HOUR + i);
+    const handleSubmit = (e: FormEvent) => {
+        e.preventDefault();
+        if (!name.trim()) return;
 
-    const currentTimePosition = timeToPosition(`${now.getHours()}:${now.getMinutes()}`);
+        const userData = { name: name.trim(), color };
+        if (user) {
+            onSave({ ...userData, id: user.id });
+        } else {
+            onSave(userData);
+        }
+        onClose();
+    };
 
+    const handleDelete = () => {
+        if (user && window.confirm(`¿Estás seguro de que quieres eliminar a "${user.name}"? Esto no se puede deshacer.`)) {
+            onDelete(user.id);
+            onClose();
+        }
+    };
+    
     return (
-        <div className="hidden md:block w-32 flex-shrink-0 bg-gray-100 rounded-lg p-2 relative overflow-y-auto">
-            <div className="relative" style={{ height: `${(TIMELINE_END_HOUR - TIMELINE_START_HOUR + 1) * HOUR_HEIGHT_PX}px` }}>
-                {/* Hour markers and lines */}
-                {hours.map(hour => (
-                    <div key={hour} className="relative" style={{ height: `${HOUR_HEIGHT_PX}px` }}>
-                        <span className="absolute -top-2 left-0 text-xs font-semibold text-gray-500">{hour % 12 === 0 ? 12 : hour % 12}{hour < 12 ? 'am' : 'pm'}</span>
-                        <div className="absolute top-0 left-8 w-px h-full bg-gray-300"></div>
+        <Modal isOpen={isOpen} onClose={onClose} title={user ? "Editar Usuario" : "Añadir Usuario"}>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Nombre del Usuario</label>
+                    <input 
+                        type="text" 
+                        value={name} 
+                        onChange={e => setName(e.target.value)} 
+                        required 
+                        autoFocus
+                        className="w-full p-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Color de Etiqueta</label>
+                    <div className="flex items-center gap-3">
+                         <input 
+                            type="color" 
+                            value={color} 
+                            onChange={e => setColor(e.target.value)} 
+                            className="w-12 h-10 p-1 border border-gray-300 rounded-md cursor-pointer"
+                        />
+                        <input 
+                            type="text" 
+                            value={color}
+                            onChange={e => setColor(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded-md bg-gray-50 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
                     </div>
-                ))}
+                </div>
                 
-                {/* Current time indicator */}
-                {currentTimePosition >= 0 && currentTimePosition <= (hours.length * HOUR_HEIGHT_PX) && (
-                     <div className="absolute left-6 right-0 h-px bg-red-500 z-20" style={{ top: `${currentTimePosition}px` }}>
-                        <div className="absolute -left-2 -top-1 w-2 h-2 bg-red-500 rounded-full"></div>
+                <div className="flex justify-between items-center mt-4">
+                    <div>
+                        {user && (
+                            <button type="button" onClick={handleDelete} className="py-2 px-4 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">Eliminar</button>
+                        )}
                     </div>
-                )}
-               
-                {/* Task dots */}
-                {tasks.map(task => (
-                    <div key={task.id} className="absolute left-8 transform -translate-x-1/2 z-10 group" style={{ top: `${timeToPosition(task.time)}px` }}>
-                        <div 
-                            className="w-3 h-3 rounded-full border-2 border-white"
-                            style={{ backgroundColor: userColorMap[task.employee] || '#9ca3af' }}
-                        ></div>
-                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-48 p-2 bg-gray-800 text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
-                            <p className="font-bold">{task.time} - {task.employee}</p>
-                            <p>{task.text}</p>
-                        </div>
+                    <div className="flex gap-4">
+                        <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">Cancelar</button>
+                        <button type="submit" className="py-2 px-4 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Guardar</button>
                     </div>
-                ))}
-            </div>
-        </div>
+                </div>
+            </form>
+        </Modal>
     );
 };
 
-export default Timeline;
+export default UserFormModal;

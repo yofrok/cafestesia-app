@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
-import { Screen, User } from './types';
+import { Screen } from './types';
 import Sidebar from './components/Sidebar';
 import { useKanban } from './services/useKanban';
 import { useInventory } from './services/useInventory';
