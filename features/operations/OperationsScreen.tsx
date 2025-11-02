@@ -32,13 +32,10 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
     };
 
     const handleSaveTask = (formData: TaskSubmitPayload, existingTaskId?: string) => {
-        const { recurrence, selectedDays, ...commonData } = formData;
-    
-        const referenceDate = new Date(commonData.date);
-        referenceDate.setMinutes(referenceDate.getMinutes() + referenceDate.getTimezoneOffset());
+        const { recurrence, selectedDays, recurrenceWeeks, ...commonData } = formData;
     
         if (existingTaskId) {
-            // EDITING
+            // EDITING - Recurrence options are disabled in the modal, so we only update the single task.
             const originalTask = tasks.find(t => t.id === existingTaskId);
             if (!originalTask) return;
     
@@ -49,64 +46,47 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
             };
             updateTask(updatedTaskData);
     
-            if (recurrence === 'weekly' && selectedDays && selectedDays.length > 0) {
-                const startOfWeek = new Date(referenceDate);
-                const dayOfWeek = referenceDate.getDay();
-                const diff = referenceDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-                startOfWeek.setDate(diff);
-    
-                const editedTaskDayOfWeek = referenceDate.getDay();
-    
-                const tasksToCreate: Omit<KanbanTask, 'id' | 'status'>[] = [];
-                selectedDays.forEach(dayIndexStr => {
-                    const dayIndex = parseInt(dayIndexStr, 10);
-                    
-                    if (dayIndex === editedTaskDayOfWeek) {
-                        return;
-                    }
-                    
-                    const taskDate = new Date(startOfWeek);
-                    if (dayIndex === 0) { // Sunday
-                        taskDate.setDate(startOfWeek.getDate() + 6);
-                    } else { // Monday-Saturday
-                        taskDate.setDate(startOfWeek.getDate() + (dayIndex - 1));
-                    }
-                    
-                    taskDate.setMinutes(taskDate.getMinutes() - taskDate.getTimezoneOffset());
-                    tasksToCreate.push({
-                        ...commonData,
-                        date: taskDate.toISOString().split('T')[0],
-                    });
-                });
-    
-                if (tasksToCreate.length > 0) {
-                    addMultipleTasks(tasksToCreate);
-                }
-            }
         } else {
             // ADDING NEW
+            const referenceDate = new Date(commonData.date);
+            referenceDate.setMinutes(referenceDate.getMinutes() + referenceDate.getTimezoneOffset());
+
             if (recurrence === 'weekly' && selectedDays && selectedDays.length > 0) {
+                const numWeeks = parseInt(recurrenceWeeks || '4', 10);
+                const tasksToCreate: Omit<KanbanTask, 'id' | 'status'>[] = [];
+                
+                // Find the start of the reference week (Monday)
                 const startOfWeek = new Date(referenceDate);
-                const dayOfWeek = referenceDate.getDay();
+                const dayOfWeek = referenceDate.getDay(); // Sunday: 0, Monday: 1, etc.
                 const diff = referenceDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
                 startOfWeek.setDate(diff);
-    
-                const tasksToCreate: Omit<KanbanTask, 'id' | 'status'>[] = [];
-                selectedDays.forEach(dayIndexStr => {
-                    const dayIndex = parseInt(dayIndexStr, 10);
-                    const taskDate = new Date(startOfWeek);
-                    if (dayIndex === 0) {
-                        taskDate.setDate(startOfWeek.getDate() + 6);
-                    } else {
-                        taskDate.setDate(startOfWeek.getDate() + (dayIndex - 1));
-                    }
-                    
-                    taskDate.setMinutes(taskDate.getMinutes() - taskDate.getTimezoneOffset());
-                    tasksToCreate.push({
-                        ...commonData,
-                        date: taskDate.toISOString().split('T')[0],
+
+                // Iterate for the selected number of weeks
+                for (let week = 0; week < numWeeks; week++) {
+                    const currentWeekStart = new Date(startOfWeek);
+                    currentWeekStart.setDate(startOfWeek.getDate() + week * 7);
+
+                    selectedDays.forEach(dayIndexStr => {
+                        const dayIndex = parseInt(dayIndexStr, 10);
+                        const taskDate = new Date(currentWeekStart);
+                        
+                        // dayIndex from form: Sunday: 0, Monday: 1, ... Saturday: 6
+                        // We calculated week start as Monday, so adjust accordingly.
+                        if (dayIndex === 0) { // Sunday
+                            taskDate.setDate(currentWeekStart.getDate() + 6);
+                        } else { // Monday-Saturday
+                            taskDate.setDate(currentWeekStart.getDate() + (dayIndex - 1));
+                        }
+                        
+                        // Apply timezone offset to each created date
+                        taskDate.setMinutes(taskDate.getMinutes() - taskDate.getTimezoneOffset());
+                        
+                        tasksToCreate.push({
+                            ...commonData,
+                            date: taskDate.toISOString().split('T')[0],
+                        });
                     });
-                });
+                }
                 addMultipleTasks(tasksToCreate);
             } else {
                 addTask(commonData);

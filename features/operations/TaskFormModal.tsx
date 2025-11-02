@@ -7,6 +7,7 @@ import Icon from '../../components/Icon';
 export type TaskSubmitPayload = Omit<KanbanTask, 'id' | 'status'> & {
     recurrence: 'once' | 'weekly';
     selectedDays?: string[];
+    recurrenceWeeks?: string;
 };
 
 interface TaskFormModalProps {
@@ -36,6 +37,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
     const [isCritical, setIsCritical] = useState(false);
     const [recurrence, setRecurrence] = useState<'once' | 'weekly'>('once');
     const [selectedDays, setSelectedDays] = useState<string[]>([]);
+    const [recurrenceWeeks, setRecurrenceWeeks] = useState('4');
     const [subtasks, setSubtasks] = useState<Subtask[]>([]);
     const [newSubtaskText, setNewSubtaskText] = useState('');
     
@@ -66,6 +68,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
             setIsCritical(task?.isCritical || false);
             setRecurrence('once');
             setSelectedDays([]);
+            setRecurrenceWeeks('4');
             setSubtasks(task?.subtasks || []);
             setNewSubtaskText('');
             
@@ -138,6 +141,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
             date: task?.date || selectedDate,
             recurrence,
             selectedDays,
+            recurrenceWeeks,
             subtasks,
         };
         
@@ -157,6 +161,8 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
         }
     };
 
+    const isEditing = !!task;
+
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={task ? "Editar Tarea" : "Añadir Nueva Tarea"}>
             <div className="relative">
@@ -165,30 +171,45 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
                         <label className="text-sm font-medium text-gray-600">Nombre de la Tarea</label>
                         <input type="text" value={text} onChange={e => setText(e.target.value)} required className="w-full p-2 border border-gray-300 rounded-md bg-gray-50" />
                     </div>
-                    <div className="form-group">
-                        <label className="text-sm font-medium text-gray-600 mb-2 block">Repetición</label>
-                        <div className="flex gap-2 bg-gray-200 rounded-lg p-1">
-                            <button type="button" onClick={() => setRecurrence('once')} className={`flex-1 p-2 rounded-md text-sm font-bold transition-colors ${recurrence === 'once' ? 'bg-white shadow-sm' : ''}`}>Una vez</button>
-                            <button type="button" onClick={() => setRecurrence('weekly')} className={`flex-1 p-2 rounded-md text-sm font-bold transition-colors ${recurrence === 'weekly' ? 'bg-white shadow-sm' : ''}`}>Semanalmente</button>
-                        </div>
-                    </div>
-                    {recurrence === 'weekly' && (
+
+                    <fieldset disabled={isEditing}>
                         <div className="form-group">
-                            <label className="text-sm font-medium text-gray-600 mb-2 block">Días de la semana</label>
-                            <div className="flex justify-between gap-1">
-                                {daysOfWeek.map(({label, value}) => (
-                                    <button
-                                        type="button"
-                                        key={value}
-                                        onClick={() => handleDayToggle(value)}
-                                        className={`w-9 h-9 flex items-center justify-center font-bold rounded-full border-2 transition-colors ${selectedDays.includes(value) ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-100 border-gray-300'}`}
-                                    >
-                                        {label}
-                                    </button>
-                                ))}
+                            <label className="text-sm font-medium text-gray-600 mb-2 block">Repetición</label>
+                            <div className="flex gap-2 bg-gray-200 rounded-lg p-1">
+                                <button type="button" onClick={() => setRecurrence('once')} className={`flex-1 p-2 rounded-md text-sm font-bold transition-colors ${recurrence === 'once' ? 'bg-white shadow-sm' : ''}`}>Una vez</button>
+                                <button type="button" onClick={() => setRecurrence('weekly')} className={`flex-1 p-2 rounded-md text-sm font-bold transition-colors ${recurrence === 'weekly' ? 'bg-white shadow-sm' : ''}`}>Semanalmente</button>
                             </div>
+                             {isEditing && <p className="text-xs text-gray-500 mt-1">La repetición no se puede cambiar en una tarea existente.</p>}
                         </div>
-                    )}
+                        {recurrence === 'weekly' && (
+                            <div className="flex flex-col gap-4 mt-4">
+                                <div className="form-group">
+                                    <label className="text-sm font-medium text-gray-600 mb-2 block">Días de la semana</label>
+                                    <div className="flex justify-between gap-1">
+                                        {daysOfWeek.map(({label, value}) => (
+                                            <button
+                                                type="button"
+                                                key={value}
+                                                onClick={() => handleDayToggle(value)}
+                                                className={`w-9 h-9 flex items-center justify-center font-bold rounded-full border-2 transition-colors ${selectedDays.includes(value) ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-100 border-gray-300'}`}
+                                            >
+                                                {label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="form-group">
+                                    <label className="text-sm font-medium text-gray-600">Repetir durante</label>
+                                    <select value={recurrenceWeeks} onChange={e => setRecurrenceWeeks(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50">
+                                        <option value="4">4 semanas</option>
+                                        <option value="8">8 semanas</option>
+                                        <option value="12">12 semanas</option>
+                                    </select>
+                                </div>
+                            </div>
+                        )}
+                    </fieldset>
+                    
                     <div className="grid grid-cols-2 gap-4">
                          <div className="form-group">
                             <label className="text-sm font-medium text-gray-600">Empleado</label>
