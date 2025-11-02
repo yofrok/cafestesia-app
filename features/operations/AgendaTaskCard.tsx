@@ -1,5 +1,5 @@
 import React from 'react';
-import { KanbanTask, Employee, TaskStatus } from '../../types';
+import { KanbanTask, TaskStatus } from '../../types';
 import Icon from '../../components/Icon';
 
 interface AgendaTaskCardProps {
@@ -8,14 +8,8 @@ interface AgendaTaskCardProps {
     onEdit: (task: KanbanTask) => void;
     onViewSubtasks: () => void;
     style: React.CSSProperties;
+    userColor: string;
 }
-
-const employeeColors: Record<Employee, { bg: string; border: string; text: string }> = {
-    'Ali': { bg: 'bg-pink-100', border: 'border-pink-500', text: 'text-pink-800' },
-    'Fer': { bg: 'bg-purple-100', border: 'border-purple-500', text: 'text-purple-800' },
-    'Claudia': { bg: 'bg-teal-100', border: 'border-teal-500', text: 'text-teal-800' },
-    'Admin': { bg: 'bg-yellow-100', border: 'border-yellow-600', text: 'text-yellow-900' },
-};
 
 const getStatusStyles = (status: TaskStatus) => {
     switch (status) {
@@ -29,8 +23,7 @@ const getStatusStyles = (status: TaskStatus) => {
     }
 };
 
-const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, onEdit, onViewSubtasks, style }) => {
-    const { bg, border, text } = employeeColors[task.employee] || employeeColors.Admin;
+const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, onEdit, onViewSubtasks, style, userColor }) => {
     const statusStyles = getStatusStyles(task.status);
     
     const handleStatusChange = (e: React.MouseEvent) => {
@@ -51,33 +44,44 @@ const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, o
     const totalSubtasks = task.subtasks?.length || 0;
     const completedSubtasks = task.subtasks?.filter(st => st.isCompleted).length || 0;
 
+    const cardStyle: React.CSSProperties = {
+        ...style,
+        borderWidth: '2px',
+        borderColor: task.status === 'inprogress' ? userColor : 'transparent',
+        backgroundColor: '#f9fafb' // neutral bg-gray-50
+    };
+
+    const textStyle = {
+        color: '#374151' // neutral text-gray-700 for readability
+    };
+
     return (
         <div
-            style={style}
+            style={cardStyle}
             onClick={onViewSubtasks}
-            className={`absolute rounded-lg p-2 flex gap-2 transition-all duration-300 cursor-pointer ${bg} border-2 ${statusStyles} ${task.status === 'inprogress' ? border : 'border-transparent'}`}
+            className={`absolute rounded-lg p-2 flex gap-2 transition-all duration-300 cursor-pointer ${statusStyles}`}
         >
-            <div className={`flex-shrink-0 w-1 h-full ${border.replace('border-', 'bg-')} rounded-full`}></div>
+            <div className="flex-shrink-0 w-1 h-full rounded-full" style={{ backgroundColor: userColor }}></div>
             <div className="flex-grow flex flex-col min-w-0 min-h-0">
                 <div className="flex-grow overflow-hidden">
-                    <p className={`font-bold text-sm break-words ${text} ${task.status === 'done' ? 'line-through' : ''}`}>{task.text}</p>
-                    <p className={`text-xs ${text} ${task.status === 'done' ? 'line-through' : ''}`}>
+                    <p className={`font-bold text-sm break-words ${task.status === 'done' ? 'line-through' : ''}`} style={textStyle}>{task.text}</p>
+                    <p className={`text-xs ${task.status === 'done' ? 'line-through' : ''}`} style={textStyle}>
                         {task.time} - {formattedEndTime} ({task.duration} min)
                     </p>
                 </div>
                 <div className="flex items-center justify-between mt-1 flex-shrink-0">
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full bg-white/60 ${text}`}>{task.employee}</span>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/60" style={textStyle}>{task.employee}</span>
                      
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2" style={textStyle}>
                         {totalSubtasks > 0 && (
-                            <div className={`flex items-center gap-1 text-xs font-semibold ${text}`}>
+                            <div className="flex items-center gap-1 text-xs font-semibold">
                                 <Icon name="list" size={14} />
                                 <span>{completedSubtasks}/{totalSubtasks}</span>
                             </div>
                         )}
                         <button
                             onClick={(e) => { e.stopPropagation(); onEdit(task); }}
-                            className={`p-1 rounded-full hover:bg-black/10 transition-colors ${text}`}
+                            className="p-1 rounded-full hover:bg-black/10 transition-colors"
                             title="Editar Tarea"
                         >
                             <Icon name="pencil" size={14} />

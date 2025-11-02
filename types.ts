@@ -47,8 +47,12 @@ export interface ProductionProcess {
     lastTickTimestamp: number; // For offline calculation
 }
 
+export interface User {
+    id: string;
+    name: string;
+    color: string;
+}
 
-export type Employee = 'Ali' | 'Fer' | 'Claudia' | 'Admin';
 export type Shift = 'matutino' | 'pre-apertura' | 'cierre' | 'default';
 
 export type TaskStatus = 'todo' | 'inprogress' | 'done';
@@ -62,7 +66,7 @@ export interface Subtask {
 export interface KanbanTask {
     id: string;
     text: string;
-    employee: Employee;
+    employee: string;
     shift: Shift;
     time: string; // "HH:mm"
     date: string; // "YYYY-MM-DD"

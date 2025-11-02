@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { KanbanTask, Employee } from '../../types';
+import { KanbanTask } from '../../types';
 import Icon from '../../components/Icon';
 
 type TimeStatus = 'due' | 'imminent' | 'normal';
@@ -11,16 +10,10 @@ interface KanbanCardProps {
     onCardClick: () => void;
     timeStatus: TimeStatus;
     onEdit: (task: KanbanTask) => void;
+    userColor: string; // Dynamic color prop
 }
 
-const employeeColors: Record<Employee, string> = {
-    'Ali': 'bg-pink-500',
-    'Fer': 'bg-purple-600',
-    'Claudia': 'bg-teal-500',
-    'Admin': 'bg-yellow-700',
-};
-
-const KanbanCard: React.FC<KanbanCardProps> = ({ task, onDragStart, onCardClick, timeStatus, onEdit }) => {
+const KanbanCard: React.FC<KanbanCardProps> = ({ task, onDragStart, onCardClick, timeStatus, onEdit, userColor }) => {
     
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
         onDragStart(task.id);
@@ -50,7 +43,10 @@ const KanbanCard: React.FC<KanbanCardProps> = ({ task, onDragStart, onCardClick,
                 <span className="text-xs text-gray-500 font-semibold">{task.time}</span>
                 <span className="font-medium">{task.text}</span>
                 <div className="flex flex-wrap gap-2 items-center mt-2">
-                    <span className={`text-xs font-bold text-white px-2 py-0.5 rounded-full ${employeeColors[task.employee]}`}>
+                    <span 
+                        className="text-xs font-bold text-white px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: userColor }}
+                    >
                         {task.employee}
                     </span>
                     {task.isCritical && (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
-import { Screen } from './types';
+import { Screen, User } from './types';
 import Sidebar from './components/Sidebar';
 import { useKanban } from './services/useKanban';
 import { useInventory } from './services/useInventory';
@@ -9,6 +9,7 @@ import { useCategories } from './services/useCategories';
 import { useRecipeLog } from './services/useRecipeLog';
 import { useAudioAlerts } from './services/useAudioAlerts';
 import Icon from './components/Icon';
+import { useUsers } from './services/useUsers';
 
 // --- Code Splitting ---
 const BreadProductionScreen = lazy(() => import('./features/baking/BreadProductionScreen'));
@@ -44,6 +45,7 @@ const App: React.FC = () => {
     const providersHook = useProviders();
     const categoriesHook = useCategories();
     const recipeLogHook = useRecipeLog();
+    const usersHook = useUsers();
     const { playAlert } = useAudioAlerts();
     
     const { processes } = productionHook;
@@ -133,7 +135,7 @@ const App: React.FC = () => {
             case Screen.Baking:
                 return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} />;
             case Screen.Operations:
-                return <OperationsScreen kanbanHook={kanbanHook} criticalTasks={criticalAndUpcomingTasks} />;
+                return <OperationsScreen kanbanHook={kanbanHook} criticalTasks={criticalAndUpcomingTasks} users={usersHook.users} />;
             case Screen.Inventory:
                 return <InventoryScreen 
                             inventoryHook={inventoryHook} 
@@ -145,6 +147,7 @@ const App: React.FC = () => {
                             providersHook={providersHook}
                             categoriesHook={categoriesHook}
                             recipeLogHook={recipeLogHook}
+                            usersHook={usersHook}
                        />;
             default:
                 return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} />;

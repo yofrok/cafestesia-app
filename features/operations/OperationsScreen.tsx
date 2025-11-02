@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { KanbanTask, Employee } from '../../types';
+import { KanbanTask, User } from '../../types';
 import TaskFormModal, { TaskSubmitPayload } from './TaskFormModal';
 import { useKanban } from '../../services/useKanban';
 import Icon from '../../components/Icon';
@@ -10,16 +10,15 @@ import CriticalTasksBar from './CriticalTasksBar';
 interface OperationsScreenProps {
     kanbanHook: ReturnType<typeof useKanban>;
     criticalTasks: { task: KanbanTask; diff: number }[];
+    users: User[];
 }
 
-const employees: Employee[] = ['Ali', 'Fer', 'Claudia', 'Admin'];
-
-const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, criticalTasks }) => {
+const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, criticalTasks, users }) => {
     const { tasks, addTask, addMultipleTasks, updateTask, updateTaskStatus, deleteTask } = kanbanHook;
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<KanbanTask | null>(null);
-    const [employeeFilter, setEmployeeFilter] = useState<Employee | 'All'>('All');
+    const [employeeFilter, setEmployeeFilter] = useState<string>('All');
 
     const handleEdit = (task: KanbanTask) => {
         setEditingTask(task);
@@ -129,13 +128,13 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
                     >
                         Todos
                     </button>
-                    {employees.map(emp => (
+                    {users.map(user => (
                          <button 
-                            key={emp}
-                            onClick={() => setEmployeeFilter(emp)}
-                            className={`px-3 py-1 text-sm font-bold rounded-md transition-colors ${employeeFilter === emp ? 'bg-white shadow-sm' : 'bg-transparent text-gray-600'}`}
+                            key={user.id}
+                            onClick={() => setEmployeeFilter(user.name)}
+                            className={`px-3 py-1 text-sm font-bold rounded-md transition-colors ${employeeFilter === user.name ? 'bg-white shadow-sm' : 'bg-transparent text-gray-600'}`}
                         >
-                            {emp}
+                            {user.name}
                         </button>
                     ))}
                 </div>
@@ -147,6 +146,7 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
                     onEditTask={handleEdit} 
                     onUpdateStatus={updateTaskStatus}
                     onUpdateTask={updateTask}
+                    users={users}
                 />
             </div>
 
@@ -157,6 +157,7 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
                 onDelete={deleteTask}
                 task={editingTask}
                 selectedDate={selectedDateStr}
+                users={users}
             />
         </div>
     );

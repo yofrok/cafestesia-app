@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { KanbanTask, TaskStatus } from '../../types';
+import { KanbanTask, TaskStatus, User } from '../../types';
 import { TIMELINE_START_HOUR, TIMELINE_END_HOUR } from '../../constants';
 import AgendaTaskCard from './AgendaTaskCard';
 import SubTaskOverlay from './SubTaskOverlay';
@@ -9,6 +9,7 @@ interface DailyAgendaViewProps {
     onUpdateStatus: (taskId: string, newStatus: TaskStatus) => void;
     onEditTask: (task: KanbanTask) => void;
     onUpdateTask: (updatedTask: KanbanTask) => void;
+    users: User[];
 }
 
 const EXPANDED_HOUR_HEIGHT_PX = 120; // Height for hours with tasks
@@ -23,9 +24,16 @@ interface TaskLayout {
     zIndex: number;
 }
 
-const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus, onEditTask, onUpdateTask }) => {
+const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus, onEditTask, onUpdateTask, users }) => {
     const [now, setNow] = useState(new Date());
     const [taskForSubtasks, setTaskForSubtasks] = useState<KanbanTask | null>(null);
+
+    const userColorMap = useMemo(() => {
+        return users.reduce((acc, user) => {
+            acc[user.name] = user.color;
+            return acc;
+        }, {} as Record<string, string>);
+    }, [users]);
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date()), 60000);
@@ -45,7 +53,7 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
                 setTaskForSubtasks(null);
             }
         }
-    }, [tasks]);
+    }, [tasks, taskForSubtasks]);
 
     const tasksByHour = useMemo(() => {
         const byHour: Record<number, boolean> = {};
@@ -169,6 +177,7 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
                            onUpdateStatus={onUpdateStatus}
                            onEdit={onEditTask}
                            onViewSubtasks={() => setTaskForSubtasks(task)}
+                           userColor={userColorMap[task.employee] || '#9ca3af'}
                            style={{
                                top: `${top}px`,
                                height: `${Math.max(height - 4, 80)}px`,

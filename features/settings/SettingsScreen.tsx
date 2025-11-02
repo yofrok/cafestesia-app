@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Provider, Category, Recipe } from '../../types';
+import { Provider, Category, Recipe, User } from '../../types';
 import { useProviders } from '../../services/useProviders';
 import { useCategories } from '../../services/useCategories';
 import { useRecipeLog } from '../../services/useRecipeLog';
@@ -8,17 +8,20 @@ import ProviderFormModal from './ProviderFormModal';
 import CategoryFormModal from './CategoryFormModal';
 import { RECIPES } from '../../constants';
 import RecipeLogModal from './RecipeLogModal';
+import { useUsers } from '../../services/useUsers';
+import UserFormModal from './UserFormModal';
 
 interface SettingsScreenProps {
     providersHook: ReturnType<typeof useProviders>;
     categoriesHook: ReturnType<typeof useCategories>;
     recipeLogHook: ReturnType<typeof useRecipeLog>;
+    usersHook: ReturnType<typeof useUsers>;
 }
 
 type SettingsTab = 'production' | 'inventory' | 'operations';
 
-const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categoriesHook, recipeLogHook }) => {
-    const [activeTab, setActiveTab] = useState<SettingsTab>('production');
+const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categoriesHook, recipeLogHook, usersHook }) => {
+    const [activeTab, setActiveTab] = useState<SettingsTab>('operations');
 
     // Provider state
     const { providers, addProvider, updateProvider, deleteProvider } = providersHook;
@@ -33,6 +36,12 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
     // Recipe Log state
     const { feedbackLog } = recipeLogHook;
     const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+
+    // User state
+    const { users, addUser, updateUser, deleteUser } = usersHook;
+    const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState<User | null>(null);
+
 
     const handleEditProvider = (provider: Provider) => {
         setEditingProvider(provider);
@@ -67,6 +76,24 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
             updateCategory(categoryData);
         } else {
             addCategory(categoryData);
+        }
+    };
+
+    const handleEditUser = (user: User) => {
+        setEditingUser(user);
+        setIsUserModalOpen(true);
+    };
+
+    const handleAddNewUser = () => {
+        setEditingUser(null);
+        setIsUserModalOpen(true);
+    };
+
+    const handleUserSave = (userData: Omit<User, 'id'> | User) => {
+        if ('id' in userData) {
+            updateUser(userData);
+        } else {
+            addUser(userData);
         }
     };
 
@@ -172,10 +199,35 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
                     )}
                     
                     {activeTab === 'operations' && (
-                        <div className="text-center py-16 text-gray-500 bg-white rounded-lg border border-gray-200 shadow-sm">
-                            <p className="font-bold">Próximamente</p>
-                            <p>Aquí encontrarás las configuraciones para las operaciones diarias.</p>
-                        </div>
+                        <section>
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-xl font-bold text-blue-700">Gestión de Usuarios</h2>
+                                <button onClick={handleAddNewUser} className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                                    <Icon name="plus-circle" size={16} />
+                                    Añadir Usuario
+                                </button>
+                            </div>
+                            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                                <ul className="divide-y divide-gray-200">
+                                    {users.length > 0 ? users.map(user => (
+                                        <li key={user.id} className="p-4 flex justify-between items-center">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-6 h-6 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: user.color }}></div>
+                                                <span className="font-medium text-gray-800">{user.name}</span>
+                                            </div>
+                                            <button 
+                                                onClick={() => handleEditUser(user)}
+                                                className="text-sm text-blue-600 hover:underline font-semibold"
+                                            >
+                                                Editar
+                                            </button>
+                                        </li>
+                                    )) : (
+                                        <li className="p-4 text-center text-gray-500">No hay usuarios. ¡Añade el primero!</li>
+                                    )}
+                                </ul>
+                            </div>
+                        </section>
                     )}
                 </div>
             </div>
@@ -193,6 +245,13 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
                 onSave={handleCategorySave}
                 onDelete={deleteCategory}
                 category={editingCategory}
+            />
+            <UserFormModal
+                isOpen={isUserModalOpen}
+                onClose={() => setIsUserModalOpen(false)}
+                onSave={handleUserSave}
+                onDelete={deleteUser}
+                user={editingUser}
             />
             {selectedRecipe && (
                 <RecipeLogModal

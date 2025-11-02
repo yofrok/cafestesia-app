@@ -1,5 +1,5 @@
 import React, { useState, FormEvent, useEffect, KeyboardEvent } from 'react';
-import { KanbanTask, Employee, Shift, Subtask } from '../../types';
+import { KanbanTask, Shift, Subtask, User } from '../../types';
 import Modal from '../../components/Modal';
 import { TASK_DURATIONS, OPERATIONS_PIN } from '../../constants';
 import Icon from '../../components/Icon';
@@ -17,6 +17,7 @@ interface TaskFormModalProps {
     onDelete: (taskId: string) => void;
     task: KanbanTask | null;
     selectedDate: string;
+    users: User[];
 }
 
 const daysOfWeek = [
@@ -25,9 +26,9 @@ const daysOfWeek = [
     { label: 'D', value: '0' },
 ];
 
-const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, onDelete, task, selectedDate }) => {
+const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, onDelete, task, selectedDate, users }) => {
     const [text, setText] = useState('');
-    const [employee, setEmployee] = useState<Employee>('Ali');
+    const [employee, setEmployee] = useState<string>('');
     const [hour, setHour] = useState('08');
     const [minute, setMinute] = useState('00');
     const [period, setPeriod] = useState<'AM' | 'PM'>('AM');
@@ -48,8 +49,10 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
 
     useEffect(() => {
         if (isOpen) {
+            const defaultEmployee = users.length > 0 ? users[0].name : '';
+
             setText(task?.text || '');
-            setEmployee(task?.employee || 'Ali');
+            setEmployee(task?.employee || defaultEmployee);
             
             const taskTime = task?.time || '08:00';
             const [h, m] = taskTime.split(':').map(Number);
@@ -77,7 +80,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
             setPinInput('');
             setPinError('');
         }
-    }, [isOpen, task]);
+    }, [isOpen, task, users]);
 
     const handleDayToggle = (dayValue: string) => {
         setSelectedDays(prev =>
@@ -213,8 +216,10 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
                     <div className="grid grid-cols-2 gap-4">
                          <div className="form-group">
                             <label className="text-sm font-medium text-gray-600">Empleado</label>
-                            <select value={employee} onChange={e => setEmployee(e.target.value as Employee)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50">
-                                <option>Ali</option><option>Fer</option><option>Claudia</option><option>Admin</option>
+                            <select value={employee} onChange={e => setEmployee(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50">
+                                {users.map(user => (
+                                    <option key={user.id} value={user.name}>{user.name}</option>
+                                ))}
                             </select>
                         </div>
                          <div className="form-group">
