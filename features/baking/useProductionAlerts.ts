@@ -38,16 +38,22 @@ export const useProductionAlerts = () => {
         let isMounted = true;
         setAudioState('loading');
         
-        // Use a temporary context just for decoding.
-        const decodingContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const initializeAudio = async () => {
+            let decodingContext: AudioContext | null = null;
+            try {
+                decodingContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            } catch (error) {
+                console.error("Web Audio API is not supported in this browser.", error);
+                if (isMounted) setAudioState('error');
+                return;
+            }
 
-        const loadAllSounds = async () => {
             try {
                 const promises = (Object.keys(sounds) as SoundName[]).map(async name => {
                     if (audioBuffersRef.current[name]) return;
                     const response = await fetch(sounds[name]);
                     const arrayBuffer = await response.arrayBuffer();
-                    const audioBuffer = await decodingContext.decodeAudioData(arrayBuffer);
+                    const audioBuffer = await decodingContext!.decodeAudioData(arrayBuffer);
                     if (isMounted) {
                         audioBuffersRef.current[name] = audioBuffer;
                     }
@@ -62,12 +68,13 @@ export const useProductionAlerts = () => {
                     setAudioState('error');
                 }
             } finally {
-                // Close the temporary context after decoding is done.
-                decodingContext.close();
+                if (decodingContext) {
+                    decodingContext.close();
+                }
             }
         };
 
-        loadAllSounds();
+        initializeAudio();
         
         return () => { isMounted = false; };
     }, []);
@@ -76,7 +83,13 @@ export const useProductionAlerts = () => {
         if (isUnlockedRef.current) return;
         
         if (!audioContextRef.current) {
-            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+            try {
+                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+            } catch (error) {
+                console.error("Could not create AudioContext:", error);
+                setAudioState('error');
+                return;
+            }
         }
         
         const context = audioContextRef.current;

@@ -1,10 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Category } from '../types';
 import { db } from './firebase';
-// FIX: Using namespace import for firestore to resolve export errors.
-import * as firestore from 'firebase/firestore';
+import { 
+    collection, 
+    query, 
+    orderBy, 
+    onSnapshot, 
+    writeBatch, 
+    doc, 
+    addDoc, 
+    updateDoc, 
+    deleteDoc 
+} from 'firebase/firestore';
 
-const categoriesCollectionRef = firestore.collection(db, 'categories');
+const categoriesCollectionRef = collection(db, 'categories');
 
 const MOCK_CATEGORIES: Omit<Category, 'id'>[] = [
     { name: 'Secos' },
@@ -17,9 +26,9 @@ const MOCK_CATEGORIES: Omit<Category, 'id'>[] = [
 
 const seedInitialData = async () => {
     console.log("Seeding initial categories to Firestore...");
-    const batch = firestore.writeBatch(db);
+    const batch = writeBatch(db);
     MOCK_CATEGORIES.forEach(category => {
-        const newDocRef = firestore.doc(categoriesCollectionRef);
+        const newDocRef = doc(categoriesCollectionRef);
         batch.set(newDocRef, category);
     });
     await batch.commit();
@@ -30,9 +39,8 @@ export const useCategories = () => {
     const [categories, setCategories] = useState<Category[]>([]);
 
     useEffect(() => {
-        const q = firestore.query(categoriesCollectionRef, firestore.orderBy("name"));
-        // FIX: Corrected onSnapshot usage to v9 modular syntax.
-        const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
+        const q = query(categoriesCollectionRef, orderBy("name"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
             if (snapshot.empty && MOCK_CATEGORIES.length > 0) {
                 seedInitialData();
                 return;
@@ -51,7 +59,7 @@ export const useCategories = () => {
 
     const addCategory = async (categoryData: Omit<Category, 'id'>) => {
         try {
-            await firestore.addDoc(categoriesCollectionRef, categoryData);
+            await addDoc(categoriesCollectionRef, categoryData);
         } catch (error) {
             console.error("Error adding category:", error);
         }
@@ -59,18 +67,18 @@ export const useCategories = () => {
 
     const updateCategory = async (categoryData: Category) => {
         const { id, ...data } = categoryData;
-        const categoryRef = firestore.doc(db, 'categories', id);
+        const categoryRef = doc(db, 'categories', id);
         try {
-            await firestore.updateDoc(categoryRef, data);
+            await updateDoc(categoryRef, data);
         } catch (error) {
             console.error("Error updating category:", error);
         }
     };
 
     const deleteCategory = async (categoryId: string) => {
-        const categoryRef = firestore.doc(db, 'categories', categoryId);
+        const categoryRef = doc(db, 'categories', categoryId);
         try {
-            await firestore.deleteDoc(categoryRef);
+            await deleteDoc(categoryRef);
         } catch (error) {
             console.error("Error deleting category:", error);
         }

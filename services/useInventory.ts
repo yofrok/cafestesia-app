@@ -2,10 +2,21 @@ import { useState, useEffect } from 'react';
 import { InventoryItem, PurchaseRecord } from '../types';
 import { MOCK_INVENTORY_ITEMS } from '../constants';
 import { db } from './firebase';
-// FIX: Using namespace import for firestore to resolve export errors.
-import * as firestore from 'firebase/firestore';
+import { 
+    collection, 
+    query, 
+    orderBy, 
+    onSnapshot, 
+    writeBatch, 
+    doc, 
+    addDoc, 
+    updateDoc, 
+    deleteDoc, 
+    increment, 
+    arrayUnion 
+} from 'firebase/firestore';
 
-const inventoryCollectionRef = firestore.collection(db, 'inventory');
+const inventoryCollectionRef = collection(db, 'inventory');
 
 interface StockChangeDetails {
     itemId: string;
@@ -18,9 +29,9 @@ interface StockChangeDetails {
 
 const seedInitialData = async () => {
     console.log("Seeding initial inventory to Firestore...");
-    const batch = firestore.writeBatch(db);
+    const batch = writeBatch(db);
     MOCK_INVENTORY_ITEMS.forEach(item => {
-        const newDocRef = firestore.doc(inventoryCollectionRef);
+        const newDocRef = doc(inventoryCollectionRef);
         batch.set(newDocRef, { ...item, purchaseHistory: [] });
     });
     await batch.commit();
@@ -31,10 +42,9 @@ export const useInventory = () => {
     const [items, setItems] = useState<InventoryItem[]>([]);
 
     useEffect(() => {
-        const q = firestore.query(inventoryCollectionRef, firestore.orderBy("name"));
+        const q = query(inventoryCollectionRef, orderBy("name"));
 
-        // FIX: Corrected onSnapshot usage to v9 modular syntax.
-        const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
+        const unsubscribe = onSnapshot(q, (snapshot) => {
              if (snapshot.empty && MOCK_INVENTORY_ITEMS.length > 0) {
                 seedInitialData();
                 return;
@@ -53,7 +63,7 @@ export const useInventory = () => {
 
     const addItem = async (itemData: Omit<InventoryItem, 'id' | 'purchaseHistory'>) => {
         try {
-            await firestore.addDoc(inventoryCollectionRef, { ...itemData, purchaseHistory: [] });
+            await addDoc(inventoryCollectionRef, { ...itemData, purchaseHistory: [] });
         } catch (error) {
             console.error("Error adding inventory item:", error);
         }
@@ -61,28 +71,28 @@ export const useInventory = () => {
 
     const updateItem = async (itemData: InventoryItem) => {
         const { id, ...data } = itemData;
-        const itemRef = firestore.doc(db, 'inventory', id);
+        const itemRef = doc(db, 'inventory', id);
         try {
-            await firestore.updateDoc(itemRef, data);
+            await updateDoc(itemRef, data);
         } catch (error) {
             console.error("Error updating item:", error);
         }
     };
 
     const deleteItem = async (itemId: string) => {
-        const itemRef = firestore.doc(db, 'inventory', itemId);
+        const itemRef = doc(db, 'inventory', itemId);
         try {
-            await firestore.deleteDoc(itemRef);
+            await deleteDoc(itemRef);
         } catch (error) {
             console.error("Error deleting item:", error);
         }
     };
 
     const recordStockChange = async ({ itemId, change, purchaseDetails }: StockChangeDetails) => {
-        const itemRef = firestore.doc(db, 'inventory', itemId);
+        const itemRef = doc(db, 'inventory', itemId);
         try {
             const updatePayload: { [key: string]: any } = {
-                currentStock: firestore.increment(change)
+                currentStock: increment(change)
             };
 
             if (purchaseDetails && change > 0) {
@@ -93,10 +103,10 @@ export const useInventory = () => {
                     totalPrice: purchaseDetails.totalPrice,
                     providerName: purchaseDetails.providerName,
                 };
-                updatePayload.purchaseHistory = firestore.arrayUnion(newPurchase);
+                updatePayload.purchaseHistory = arrayUnion(newPurchase);
             }
             
-            await firestore.updateDoc(itemRef, updatePayload);
+            await updateDoc(itemRef, updatePayload);
 
         } catch (error) {
             console.error("Error recording stock change:", error);

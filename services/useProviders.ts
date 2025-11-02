@@ -1,10 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Provider } from '../types';
 import { db } from './firebase';
-// FIX: Using namespace import for firestore to resolve export errors.
-import * as firestore from 'firebase/firestore';
+import { 
+    collection, 
+    query, 
+    orderBy, 
+    onSnapshot, 
+    writeBatch, 
+    doc, 
+    addDoc, 
+    updateDoc, 
+    deleteDoc 
+} from 'firebase/firestore';
 
-const providersCollectionRef = firestore.collection(db, 'providers');
+const providersCollectionRef = collection(db, 'providers');
 
 const MOCK_PROVIDERS: Omit<Provider, 'id'>[] = [
     { name: 'Proveedor A' },
@@ -16,9 +25,9 @@ const MOCK_PROVIDERS: Omit<Provider, 'id'>[] = [
 
 const seedInitialData = async () => {
     console.log("Seeding initial providers to Firestore...");
-    const batch = firestore.writeBatch(db);
+    const batch = writeBatch(db);
     MOCK_PROVIDERS.forEach(provider => {
-        const newDocRef = firestore.doc(providersCollectionRef);
+        const newDocRef = doc(providersCollectionRef);
         batch.set(newDocRef, provider);
     });
     await batch.commit();
@@ -29,9 +38,8 @@ export const useProviders = () => {
     const [providers, setProviders] = useState<Provider[]>([]);
 
     useEffect(() => {
-        const q = firestore.query(providersCollectionRef, firestore.orderBy("name"));
-        // FIX: Corrected onSnapshot usage to v9 modular syntax.
-        const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
+        const q = query(providersCollectionRef, orderBy("name"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
             if (snapshot.empty && MOCK_PROVIDERS.length > 0) {
                 seedInitialData();
                 return;
@@ -50,7 +58,7 @@ export const useProviders = () => {
 
     const addProvider = async (providerData: Omit<Provider, 'id'>) => {
         try {
-            await firestore.addDoc(providersCollectionRef, providerData);
+            await addDoc(providersCollectionRef, providerData);
         } catch (error) {
             console.error("Error adding provider:", error);
         }
@@ -58,18 +66,18 @@ export const useProviders = () => {
 
     const updateProvider = async (providerData: Provider) => {
         const { id, ...data } = providerData;
-        const providerRef = firestore.doc(db, 'providers', id);
+        const providerRef = doc(db, 'providers', id);
         try {
-            await firestore.updateDoc(providerRef, data);
+            await updateDoc(providerRef, data);
         } catch (error) {
             console.error("Error updating provider:", error);
         }
     };
 
     const deleteProvider = async (providerId: string) => {
-        const providerRef = firestore.doc(db, 'providers', providerId);
+        const providerRef = doc(db, 'providers', providerId);
         try {
-            await firestore.deleteDoc(providerRef);
+            await deleteDoc(providerRef);
         } catch (error) {
             console.error("Error deleting provider:", error);
         }
