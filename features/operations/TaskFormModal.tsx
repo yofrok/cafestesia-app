@@ -6,7 +6,7 @@ import Icon from '../../components/Icon';
 import { EditMode } from './OperationsScreen';
 
 export type TaskSubmitPayload = Omit<KanbanTask, 'id' | 'status'> & {
-    recurrence: 'once' | 'weekly';
+    recurrence?: 'once' | 'weekly';
     selectedDays?: string[];
     recurrenceWeeks?: string;
 };
@@ -47,14 +47,18 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
     const [subtasks, setSubtasks] = useState<Subtask[]>([]);
     const [newSubtaskText, setNewSubtaskText] = useState('');
     const [date, setDate] = useState(selectedDate);
+    const [isPlanned, setIsPlanned] = useState(true);
+    const [addedBy, setAddedBy] = useState('');
 
 
     useEffect(() => {
         if (isOpen) {
-            const defaultEmployee = users.length > 0 ? users[0].name : '';
-
+            const firstUser = users.length > 0 ? users[0].name : '';
+            setIsPlanned(!!task?.date || editMode === 'new');
+            
             setText(task?.text || '');
-            setEmployee(task?.employee || defaultEmployee);
+            setEmployee(task?.employee || firstUser);
+            setAddedBy(task?.addedBy || firstUser);
             setDate(task?.date || selectedDate);
             
             const taskTime = task?.time || '08:00';
@@ -78,16 +82,15 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
 
             if (task && editMode === 'future' && task.recurrenceId) {
                 setRecurrence('weekly');
-                // Find all tasks in the same series to pre-select the days
                 const seriesTasks = allTasks.filter(t => t.recurrenceId === task.recurrenceId);
                 const daysInSeries = new Set<string>();
                 seriesTasks.forEach(seriesTask => {
-                    const taskDate = new Date(seriesTask.date);
-                    // The date string is "YYYY-MM-DD", which JS interprets as UTC midnight.
-                    // To get the correct local day, we need to account for the timezone offset.
-                    taskDate.setMinutes(taskDate.getMinutes() + taskDate.getTimezoneOffset());
-                    const dayOfWeek = taskDate.getDay(); // Sunday: 0, Monday: 1, etc.
-                    daysInSeries.add(String(dayOfWeek));
+                    if (seriesTask.date) {
+                         const taskDate = new Date(seriesTask.date);
+                         taskDate.setMinutes(taskDate.getMinutes() + taskDate.getTimezoneOffset());
+                         const dayOfWeek = taskDate.getDay();
+                         daysInSeries.add(String(dayOfWeek));
+                    }
                 });
                 setSelectedDays(Array.from(daysInSeries));
             } else {
@@ -132,38 +135,38 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        if (!text) {
-            alert('Por favor completa el nombre de la tarea.');
+        if (!text || !addedBy) {
+            alert('Por favor completa el nombre de la tarea y quién la añadió.');
             return;
         }
         
-        if (recurrence === 'weekly' && selectedDays.length === 0 && editMode !== 'single') {
+        if (isPlanned && recurrence === 'weekly' && selectedDays.length === 0 && editMode !== 'single') {
             alert('Por favor selecciona al menos un día para la tarea recurrente.');
             return;
         }
 
         let h24 = parseInt(hour, 10);
-        if (period === 'PM' && h24 !== 12) {
-            h24 += 12;
-        } else if (period === 'AM' && h24 === 12) {
-            h24 = 0; // Midnight case
-        }
+        if (period === 'PM' && h24 !== 12) h24 += 12;
+        else if (period === 'AM' && h24 === 12) h24 = 0;
         const finalTime = `${String(h24).padStart(2, '0')}:${minute}`;
         
         const payload: TaskSubmitPayload = {
             text,
             employee,
-            time: finalTime,
+            addedBy,
             duration: parseInt(duration, 10),
             shift,
             zone,
             isCritical,
-            date: date,
             notes,
-            recurrence,
-            selectedDays,
-            recurrenceWeeks,
             subtasks,
+            ...(isPlanned && {
+                time: finalTime,
+                date: date,
+                recurrence,
+                selectedDays,
+                recurrenceWeeks,
+            }),
         };
         
         onSave(payload, task?.id);
@@ -183,114 +186,138 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
                         <label className="text-sm font-medium text-gray-600">Nombre de la Tarea</label>
                         <input type="text" value={text} onChange={e => setText(e.target.value)} required className="w-full p-2 border border-gray-300 rounded-md bg-gray-50" />
                     </div>
-                    
-                     {editMode === 'single' && (
-                        <div className="form-group mt-4">
-                            <label className="text-sm font-medium text-gray-600">Fecha</label>
-                             <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50" />
-                        </div>
-                    )}
 
-                    <fieldset disabled={(isEditing && editMode !== 'future')} className="mt-4">
-                        <div className="form-group">
-                            <label className="text-sm font-medium text-gray-600 mb-2 block">Repetición</label>
-                            <div className="flex gap-2 bg-gray-200 rounded-lg p-1">
-                                <button type="button" onClick={() => setRecurrence('once')} className={`flex-1 p-2 rounded-md text-sm font-bold transition-colors ${recurrence === 'once' ? 'bg-white shadow-sm' : ''}`}>Una vez</button>
-                                <button type="button" onClick={() => setRecurrence('weekly')} className={`flex-1 p-2 rounded-md text-sm font-bold transition-colors ${recurrence === 'weekly' ? 'bg-white shadow-sm' : ''}`}>Semanalmente</button>
-                            </div>
-                             {isEditing && editMode === 'single' && <p className="text-xs text-gray-500 mt-1">La repetición no se puede cambiar al editar una sola instancia.</p>}
-                             {isEditing && editMode === 'future' && (
-                                <div className="mt-2 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 text-sm rounded-r-lg flex items-start gap-3">
-                                    <Icon name="alert-triangle" size={20} className="flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <p className="font-bold">Atención</p>
-                                        <p>Cambiar la repetición reemplazará todas las futuras tareas de esta serie con un nuevo patrón.</p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        {recurrence === 'weekly' && (
-                            <div className="flex flex-col gap-4 mt-4">
-                                <div className="form-group">
-                                    <label className="text-sm font-medium text-gray-600 mb-2 block">Días de la semana</label>
-                                    <div className="flex justify-between gap-1">
-                                        {daysOfWeek.map(({label, value}) => (
-                                            <button
-                                                type="button"
-                                                key={value}
-                                                onClick={() => handleDayToggle(value)}
-                                                className={`w-9 h-9 flex items-center justify-center font-bold rounded-full border-2 transition-colors ${selectedDays.includes(value) ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-100 border-gray-300'}`}
-                                            >
-                                                {label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="form-group">
-                                    <label className="text-sm font-medium text-gray-600">Repetir durante</label>
-                                    <select value={recurrenceWeeks} onChange={e => setRecurrenceWeeks(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50">
-                                        <option value="4">4 semanas</option>
-                                        <option value="8">8 semanas</option>
-                                        <option value="12">12 semanas</option>
-                                    </select>
-                                </div>
-                            </div>
-                        )}
-                    </fieldset>
-                    
                     <div className="grid grid-cols-2 gap-4 mt-4">
                          <div className="form-group">
-                            <label className="text-sm font-medium text-gray-600">Empleado</label>
+                            <label className="text-sm font-medium text-gray-600">Asignada a</label>
                             <select value={employee} onChange={e => setEmployee(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50">
-                                {users.map(user => (
-                                    <option key={user.id} value={user.name}>{user.name}</option>
-                                ))}
+                                {users.map(user => <option key={user.id} value={user.name}>{user.name}</option>)}
                             </select>
                         </div>
                          <div className="form-group">
-                            <label className="text-sm font-medium text-gray-600">Turno</label>
-                            <select value={shift} onChange={e => setShift(e.target.value as Shift)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50">
-                                <option value="matutino">Matutino</option><option value="pre-apertura">Pre Apertura</option><option value="cierre">Cierre</option><option value="default">Otro</option>
+                            <label className="text-sm font-medium text-gray-600">Añadida por</label>
+                            <select value={addedBy} onChange={e => setAddedBy(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50">
+                                {users.map(user => <option key={user.id} value={user.name}>{user.name}</option>)}
                             </select>
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 mt-4">
-                        <div className="form-group">
-                            <label className="text-sm font-medium text-gray-600">Hora</label>
-                            <div className="flex gap-1">
-                                <select value={hour} onChange={e => setHour(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50">
-                                    {Array.from({ length: 12 }, (_, i) => i + 1).map(h => (
-                                        <option key={h} value={String(h).padStart(2, '0')}>{String(h).padStart(2, '0')}</option>
-                                    ))}
-                                </select>
-                                <select value={minute} onChange={e => setMinute(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50">
-                                     {Array.from({ length: 60 }, (_, i) => i).map(m => (
-                                        <option key={m} value={String(m).padStart(2, '0')}>{String(m).padStart(2, '0')}</option>
-                                    ))}
-                                </select>
-                                 <select value={period} onChange={e => setPeriod(e.target.value as 'AM' | 'PM')} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50">
-                                    <option>AM</option><option>PM</option>
-                                </select>
+
+                    <div className="form-group mt-4 p-3 bg-gray-100 rounded-lg">
+                        <label className="flex items-center justify-between cursor-pointer">
+                            <span className="text-sm font-medium text-gray-600">Planificar fecha y hora</span>
+                            <div className={`w-11 h-6 rounded-full p-1 transition-colors ${isPlanned ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                                <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${isPlanned ? 'translate-x-5' : ''}`}></div>
+                            </div>
+                            <input
+                                type="checkbox"
+                                checked={isPlanned}
+                                onChange={e => {
+                                    const newIsPlanned = e.target.checked;
+                                    setIsPlanned(newIsPlanned);
+                                    if (newIsPlanned && !task?.date) {
+                                        // This task was unplanned, set default date to today
+                                        const today = new Date();
+                                        today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+                                        setDate(today.toISOString().split('T')[0]);
+                                    }
+                                }}
+                                className="hidden"
+                            />
+                        </label>
+                    </div>
+
+                    {isPlanned && (
+                        <div className="mt-4 flex flex-col gap-4">
+                            {(editMode === 'single' || editMode === 'new') && (
+                                <div className="form-group">
+                                    <label className="text-sm font-medium text-gray-600">Fecha</label>
+                                     <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50" />
+                                </div>
+                            )}
+
+                            <fieldset disabled={(isEditing && editMode !== 'future')} className="">
+                                <div className="form-group">
+                                    <label className="text-sm font-medium text-gray-600 mb-2 block">Repetición</label>
+                                    <div className="flex gap-2 bg-gray-200 rounded-lg p-1">
+                                        <button type="button" onClick={() => setRecurrence('once')} className={`flex-1 p-2 rounded-md text-sm font-bold transition-colors ${recurrence === 'once' ? 'bg-white shadow-sm' : ''}`}>Una vez</button>
+                                        <button type="button" onClick={() => setRecurrence('weekly')} className={`flex-1 p-2 rounded-md text-sm font-bold transition-colors ${recurrence === 'weekly' ? 'bg-white shadow-sm' : ''}`}>Semanalmente</button>
+                                    </div>
+                                     {isEditing && editMode === 'single' && <p className="text-xs text-gray-500 mt-1">La repetición no se puede cambiar al editar una sola instancia.</p>}
+                                     {isEditing && editMode === 'future' && (
+                                        <div className="mt-2 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 text-sm rounded-r-lg flex items-start gap-3">
+                                            <Icon name="alert-triangle" size={20} className="flex-shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="font-bold">Atención</p>
+                                                <p>Cambiar la repetición reemplazará todas las futuras tareas de esta serie.</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                {recurrence === 'weekly' && (
+                                    <div className="flex flex-col gap-4 mt-4">
+                                        <div className="form-group">
+                                            <label className="text-sm font-medium text-gray-600 mb-2 block">Días de la semana</label>
+                                            <div className="flex justify-between gap-1">
+                                                {daysOfWeek.map(({label, value}) => (
+                                                    <button
+                                                        type="button" key={value} onClick={() => handleDayToggle(value)}
+                                                        className={`w-9 h-9 flex items-center justify-center font-bold rounded-full border-2 transition-colors ${selectedDays.includes(value) ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-100 border-gray-300'}`}
+                                                    >{label}</button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="text-sm font-medium text-gray-600">Repetir durante</label>
+                                            <select value={recurrenceWeeks} onChange={e => setRecurrenceWeeks(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50">
+                                                <option value="4">4 semanas</option><option value="8">8 semanas</option><option value="12">12 semanas</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                )}
+                            </fieldset>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="form-group">
+                                    <label className="text-sm font-medium text-gray-600">Hora</label>
+                                    <div className="flex gap-1">
+                                        <select value={hour} onChange={e => setHour(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50">
+                                            {Array.from({ length: 12 }, (_, i) => i + 1).map(h => <option key={h} value={String(h).padStart(2, '0')}>{String(h).padStart(2, '0')}</option>)}
+                                        </select>
+                                        <select value={minute} onChange={e => setMinute(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50">
+                                             {Array.from({ length: 60 }, (_, i) => i).map(m => <option key={m} value={String(m).padStart(2, '0')}>{String(m).padStart(2, '0')}</option>)}
+                                        </select>
+                                         <select value={period} onChange={e => setPeriod(e.target.value as 'AM' | 'PM')} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50">
+                                            <option>AM</option><option>PM</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                 <div className="form-group">
+                                    <label className="text-sm font-medium text-gray-600">Turno</label>
+                                    <select value={shift} onChange={e => setShift(e.target.value as Shift)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50">
+                                        <option value="matutino">Matutino</option><option value="pre-apertura">Pre Apertura</option><option value="cierre">Cierre</option><option value="default">Otro</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
-                         <div className="form-group">
-                            <label className="text-sm font-medium text-gray-600">Duración</label>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div className="form-group">
+                            <label className="text-sm font-medium text-gray-600">Duración Estimada</label>
                             <select value={duration} onChange={e => setDuration(e.target.value)} required className="w-full p-2 border border-gray-300 rounded-md bg-gray-50">
                                {TASK_DURATIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
                             </select>
                         </div>
-                    </div>
-                     <div className="form-group mt-4">
-                        <label className="text-sm font-medium text-gray-600">Zona (Opcional)</label>
-                        <input type="text" value={zone} onChange={e => setZone(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50" />
+                        <div className="form-group">
+                            <label className="text-sm font-medium text-gray-600">Zona (Opcional)</label>
+                            <input type="text" value={zone} onChange={e => setZone(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50" />
+                        </div>
                     </div>
 
                     <div className="form-group mt-4">
                         <label className="text-sm font-medium text-gray-600">Notas (Opcional)</label>
                         <textarea
-                            value={notes}
-                            onChange={e => setNotes(e.target.value)}
-                            rows={3}
+                            value={notes} onChange={e => setNotes(e.target.value)} rows={3}
                             placeholder="Añade comentarios o detalles adicionales aquí..."
                             className="w-full p-2 border border-gray-300 rounded-md bg-gray-50"
                         />
@@ -313,18 +340,14 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
                             )}
                             <div className="flex gap-2">
                                 <input
-                                    type="text"
-                                    value={newSubtaskText}
-                                    onChange={e => setNewSubtaskText(e.target.value)}
-                                    onKeyDown={handleSubtaskKeyDown}
-                                    placeholder="Añadir una subtarea..."
+                                    type="text" value={newSubtaskText} onChange={e => setNewSubtaskText(e.target.value)}
+                                    onKeyDown={handleSubtaskKeyDown} placeholder="Añadir una subtarea..."
                                     className="w-full p-2 border border-gray-300 rounded-md bg-white text-sm"
                                 />
                                 <button type="button" onClick={handleAddSubtask} className="py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 text-sm">Añadir</button>
                             </div>
                         </div>
                     </div>
-
 
                     <div className="flex items-center gap-2 mt-2">
                         <input type="checkbox" id="task-critical" checked={isCritical} onChange={e => setIsCritical(e.target.checked)} className="w-4 h-4" />
@@ -335,7 +358,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
                     <div>
                        {task && (
                            <button type="button" onClick={handleDelete} disabled={isSaving} className="py-2 px-4 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 disabled:bg-red-400">
-                               Eliminar Tarea
+                               Eliminar
                            </button>
                        )}
                     </div>
@@ -348,7 +371,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
                                     Guardando...
                                 </>
                             ) : (
-                                'Guardar Cambios'
+                                'Guardar'
                             )}
                         </button>
                     </div>

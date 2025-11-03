@@ -68,8 +68,8 @@ export interface KanbanTask {
     text: string;
     employee: string;
     shift: Shift;
-    time: string; // "HH:mm"
-    date: string; // "YYYY-MM-DD"
+    time?: string; // "HH:mm" - Optional for unplanned tasks
+    date?: string; // "YYYY-MM-DD" - Optional for unplanned tasks
     duration: number; // in minutes
     isCritical: boolean;
     zone: string;
@@ -77,6 +77,7 @@ export interface KanbanTask {
     subtasks?: Subtask[];
     notes?: string;
     recurrenceId?: string;
+    addedBy: string;
 }
 
 export interface PurchaseRecord {

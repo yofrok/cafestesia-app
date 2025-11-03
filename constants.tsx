@@ -50,14 +50,14 @@ const todayStr = today.toISOString().split('T')[0];
 
 export const INITIAL_TASKS: Omit<KanbanTask, 'id'>[] = [
     // Today's tasks
-    { text: 'Roles: Descongelar en refrigeración', employee: 'Ali', shift: 'matutino', date: todayStr, time: '08:00', duration: 30, isCritical: true, zone: 'Panadería', status: 'todo' },
-    { text: 'Checar ingredientes diarios y comprarlos', employee: 'Ali', shift: 'pre-apertura', date: todayStr, time: '15:00', duration: 60, isCritical: true, zone: 'Cocina', status: 'todo' },
-    { text: 'Hornear Roles', employee: 'Claudia', shift: 'pre-apertura', date: todayStr, time: '16:00', duration: 45, isCritical: true, zone: 'Panadería', status: 'todo' },
-    { text: 'Hornear Croissants', employee: 'Claudia', shift: 'pre-apertura', date: todayStr, time: '16:30', duration: 45, isCritical: true, zone: 'Panadería', status: 'todo' }, // Overlap for demo
-    { text: 'Corte de caja', employee: 'Fer', shift: 'cierre', date: todayStr, time: '21:50', duration: 20, isCritical: true, zone: 'Admin', status: 'todo' },
+    { text: 'Roles: Descongelar en refrigeración', employee: 'Ali', shift: 'matutino', date: todayStr, time: '08:00', duration: 30, isCritical: true, zone: 'Panadería', status: 'todo', addedBy: 'Admin' },
+    { text: 'Checar ingredientes diarios y comprarlos', employee: 'Ali', shift: 'pre-apertura', date: todayStr, time: '15:00', duration: 60, isCritical: true, zone: 'Cocina', status: 'todo', addedBy: 'Admin' },
+    { text: 'Hornear Roles', employee: 'Claudia', shift: 'pre-apertura', date: todayStr, time: '16:00', duration: 45, isCritical: true, zone: 'Panadería', status: 'todo', addedBy: 'Admin' },
+    { text: 'Hornear Croissants', employee: 'Claudia', shift: 'pre-apertura', date: todayStr, time: '16:30', duration: 45, isCritical: true, zone: 'Panadería', status: 'todo', addedBy: 'Admin' }, // Overlap for demo
+    { text: 'Corte de caja', employee: 'Fer', shift: 'cierre', date: todayStr, time: '21:50', duration: 20, isCritical: true, zone: 'Admin', status: 'todo', addedBy: 'Admin' },
     // A couple more for today
-    { text: 'Limpiar barra y area de barismo', employee: 'Claudia', shift: 'pre-apertura', date: todayStr, time: '17:00', duration: 30, isCritical: true, zone: 'Barra', status: 'todo' },
-    { text: 'Hacer masa para ciabatta (día siguiente)', employee: 'Fer', shift: 'cierre', date: todayStr, time: '21:40', duration: 20, isCritical: true, zone: 'Panadería', status: 'todo' },
+    { text: 'Limpiar barra y area de barismo', employee: 'Claudia', shift: 'pre-apertura', date: todayStr, time: '17:00', duration: 30, isCritical: true, zone: 'Barra', status: 'todo', addedBy: 'Admin' },
+    { text: 'Hacer masa para ciabatta (día siguiente)', employee: 'Fer', shift: 'cierre', date: todayStr, time: '21:40', duration: 20, isCritical: true, zone: 'Panadería', status: 'todo', addedBy: 'Admin' },
 ];
 
 export const MOCK_INVENTORY_ITEMS: Omit<InventoryItem, 'id'>[] = [

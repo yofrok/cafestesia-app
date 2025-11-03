@@ -1,15 +1,43 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Icon from '../../components/Icon';
+import { KanbanTask, User } from '../../types';
 
 interface WeekdaySelectorProps {
     selectedDate: Date;
     setSelectedDate: (date: Date) => void;
+    tasks: KanbanTask[];
+    users: User[];
 }
 
-const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({ selectedDate, setSelectedDate }) => {
+const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({ selectedDate, setSelectedDate, tasks, users }) => {
     const [displayDate, setDisplayDate] = useState(selectedDate);
     const [animationClass, setAnimationClass] = useState('');
     const touchStartX = useRef(0);
+
+    const userColorMap = useMemo(() => {
+        return users.reduce((acc, user) => {
+            acc[user.name] = user.color;
+            return acc;
+        }, {} as Record<string, string>);
+    }, [users]);
+    
+    const tasksByDay = useMemo(() => {
+        const map = new Map<string, string[]>(); // Key: "YYYY-MM-DD", Value: array of unique employee names
+        tasks.forEach(task => {
+            if (task.date) {
+                const dateStr = task.date;
+                if (!map.has(dateStr)) {
+                    map.set(dateStr, []);
+                }
+                map.get(dateStr)!.push(task.employee);
+            }
+        });
+        // Make employees unique for each day
+        for (const [dateStr, employees] of map.entries()) {
+            map.set(dateStr, Array.from(new Set(employees)));
+        }
+        return map;
+    }, [tasks]);
 
     // This is key for the calendar picker to work. When a date is picked,
     // it updates the parent's `selectedDate`, and this effect snaps our
@@ -136,6 +164,11 @@ const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({ selectedDate, setSele
                     {weekDays.map(day => {
                         const isSelected = isSameDay(day, selectedDate);
                         const isToday = isSameDay(day, today);
+
+                        const localDate = new Date(day);
+                        localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+                        const dayKey = localDate.toISOString().split('T')[0];
+                        const employeesForDay = tasksByDay.get(dayKey) || [];
                         
                         return (
                             <button
@@ -150,6 +183,16 @@ const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({ selectedDate, setSele
                                     <p className={`font-bold text-lg ${isToday ? 'text-blue-600' : (isSelected ? 'text-gray-800' : 'text-gray-600')}`}>
                                         {day.getDate()}
                                     </p>
+                                    <div className="flex justify-center items-center h-2 mt-1 gap-0.5">
+                                        {employeesForDay.slice(0, 4).map(employeeName => (
+                                            <div
+                                                key={employeeName}
+                                                className="w-1.5 h-1.5 rounded-full"
+                                                style={{ backgroundColor: userColorMap[employeeName] || '#9ca3af' }}
+                                                title={employeeName}
+                                            ></div>
+                                        ))}
+                                    </div>
                                 </div>
                             </button>
                         );

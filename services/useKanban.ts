@@ -22,7 +22,8 @@ export const useKanban = () => {
     const [tasks, setTasks] = useState<KanbanTask[]>([]);
 
     useEffect(() => {
-        const q = firestore.query(tasksCollectionRef, firestore.orderBy("date"), firestore.orderBy("time"));
+        // Query without date/time ordering to fetch all tasks, including unplanned ones.
+        const q = firestore.query(tasksCollectionRef);
         
         const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
             // Seed data if the collection is empty on first load
@@ -101,7 +102,7 @@ export const useKanban = () => {
     };
 
     const updateFutureTasks = async (originalTask: KanbanTask, updates: Partial<Omit<KanbanTask, 'id' | 'recurrenceId'>>) => {
-        if (!originalTask.recurrenceId) return;
+        if (!originalTask.recurrenceId || !originalTask.date) return;
 
         const q = firestore.query(
             tasksCollectionRef,
@@ -124,7 +125,7 @@ export const useKanban = () => {
     };
 
     const deleteFutureTasks = async (originalTask: KanbanTask) => {
-        if (!originalTask.recurrenceId) return;
+        if (!originalTask.recurrenceId || !originalTask.date) return;
 
         const q = firestore.query(
             tasksCollectionRef,

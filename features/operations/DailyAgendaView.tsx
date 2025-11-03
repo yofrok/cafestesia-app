@@ -58,8 +58,10 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
     const tasksByHour = useMemo(() => {
         const byHour: Record<number, boolean> = {};
         tasks.forEach(task => {
-            const hour = parseInt(task.time.split(':')[0], 10);
-            byHour[hour] = true;
+            if (task.time) {
+                const hour = parseInt(task.time.split(':')[0], 10);
+                byHour[hour] = true;
+            }
         });
         return byHour;
     }, [tasks]);
@@ -88,14 +90,15 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
     };
     
     const taskLayouts = useMemo(() => {
-        const sortedTasks = [...tasks].sort((a, b) => a.time.localeCompare(b.time) || b.duration - a.duration);
+        const plannedTasks = tasks.filter(t => !!t.time);
+        const sortedTasks = [...plannedTasks].sort((a, b) => a.time!.localeCompare(b.time!) || b.duration - a.duration);
         const layouts: TaskLayout[] = [];
 
         for (const task of sortedTasks) {
-            const top = timeToPosition(task.time);
+            const top = timeToPosition(task.time!);
             const taskStart = new Date(`${task.date}T${task.time}`).getTime();
             const taskEnd = taskStart + task.duration * 60000;
-            const hourLayout = hourLayouts.find(l => l.hour === parseInt(task.time.split(':')[0], 10));
+            const hourLayout = hourLayouts.find(l => l.hour === parseInt(task.time!.split(':')[0], 10));
             const hourHeight = hourLayout ? hourLayout.height : EXPANDED_HOUR_HEIGHT_PX;
             const height = (task.duration / 60) * hourHeight;
             

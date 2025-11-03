@@ -65,7 +65,7 @@ const App: React.FC = () => {
         const checkTasksTime = () => {
             const newTimeAwareTasks: Record<string, { diff: number; status: TimeStatus }> = {};
             tasks.forEach(task => {
-                if (task.date === todayStr && task.status !== 'done') {
+                if (task.date === todayStr && task.time && task.status !== 'done') {
                     const diff = calculateTimeDifference(task.time);
                     let status: TimeStatus = 'normal';
                      // This status is for Kanban card pulsing, not the same as critical logic

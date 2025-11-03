@@ -9,6 +9,7 @@ import CriticalTasksBar from './CriticalTasksBar';
 import EditOptionsModal from './EditOptionsModal';
 import { OPERATIONS_PIN } from '../../constants';
 import Modal from '../../components/Modal';
+import PendingTasksList from './PendingTasksList';
 
 interface OperationsScreenProps {
     kanbanHook: ReturnType<typeof useKanban>;
@@ -17,6 +18,7 @@ interface OperationsScreenProps {
 }
 
 export type EditMode = 'new' | 'single' | 'future';
+type OperationsView = 'agenda' | 'pending';
 
 const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, criticalTasks, users }) => {
     const { tasks, addTask, addMultipleTasks, updateTask, updateTaskStatus, deleteTask, updateFutureTasks, deleteFutureTasks } = kanbanHook;
@@ -24,6 +26,7 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<KanbanTask | null>(null);
     const [employeeFilter, setEmployeeFilter] = useState<string>('All');
+    const [activeView, setActiveView] = useState<OperationsView>('agenda');
 
     // State for handling recurring task edits/deletes
     const [taskForRecurrenceModal, setTaskForRecurrenceModal] = useState<KanbanTask | null>(null);
@@ -62,12 +65,14 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
         setIsSaving(true);
         try {
             if (existingTaskId && editingTask) { // It's an update
-                if (editMode === 'future') {
+                 if (!commonData.date) { // This is an unplanned task being updated
+                    await updateTask({ ...commonData, id: existingTaskId, status: editingTask.status });
+                 } else if (editMode === 'future') {
                      // User is creating a NEW recurrence pattern from this point forward
                     if (recurrence === 'weekly' && selectedDays && selectedDays.length > 0) {
                         await deleteFutureTasks(editingTask);
     
-                        const referenceDate = new Date(editingTask.date);
+                        const referenceDate = new Date(editingTask.date!);
                         referenceDate.setMinutes(referenceDate.getMinutes() + referenceDate.getTimezoneOffset());
                         
                         const numWeeks = parseInt(recurrenceWeeks || '4', 10);
@@ -123,49 +128,52 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
                 }
             } else {
                 // ADDING NEW
-                const referenceDate = new Date(commonData.date);
-                referenceDate.setMinutes(referenceDate.getMinutes() + referenceDate.getTimezoneOffset());
-    
-                if (recurrence === 'weekly' && selectedDays && selectedDays.length > 0) {
-                    const numWeeks = parseInt(recurrenceWeeks || '4', 10);
-                    const tasksToCreate: Omit<KanbanTask, 'id' | 'status'>[] = [];
-                    
-                    const startOfWeek = new Date(referenceDate);
-                    const dayOfWeek = referenceDate.getDay();
-                    const diff = referenceDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-                    startOfWeek.setDate(diff);
-    
-                    for (let week = 0; week < numWeeks; week++) {
-                        const currentWeekStart = new Date(startOfWeek);
-                        currentWeekStart.setDate(startOfWeek.getDate() + week * 7);
-    
-                        selectedDays.forEach(dayIndexStr => {
-                            const dayIndex = parseInt(dayIndexStr, 10);
-                            const taskDate = new Date(currentWeekStart);
-                            
-                            if (dayIndex === 0) { // Sunday
-                                taskDate.setDate(currentWeekStart.getDate() + 6);
-                            } else { // Monday-Saturday
-                                taskDate.setDate(currentWeekStart.getDate() + (dayIndex - 1));
-                            }
-                            
-                            taskDate.setMinutes(taskDate.getMinutes() - taskDate.getTimezoneOffset());
-                            
-                            tasksToCreate.push({
-                                ...commonData,
-                                date: taskDate.toISOString().split('T')[0],
+                if (!commonData.date) { // Unplanned task
+                     await addTask(commonData);
+                } else { // Planned task
+                    const referenceDate = new Date(commonData.date);
+                    referenceDate.setMinutes(referenceDate.getMinutes() + referenceDate.getTimezoneOffset());
+        
+                    if (recurrence === 'weekly' && selectedDays && selectedDays.length > 0) {
+                        const numWeeks = parseInt(recurrenceWeeks || '4', 10);
+                        const tasksToCreate: Omit<KanbanTask, 'id' | 'status'>[] = [];
+                        
+                        const startOfWeek = new Date(referenceDate);
+                        const dayOfWeek = referenceDate.getDay();
+                        const diff = referenceDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+                        startOfWeek.setDate(diff);
+        
+                        for (let week = 0; week < numWeeks; week++) {
+                            const currentWeekStart = new Date(startOfWeek);
+                            currentWeekStart.setDate(startOfWeek.getDate() + week * 7);
+        
+                            selectedDays.forEach(dayIndexStr => {
+                                const dayIndex = parseInt(dayIndexStr, 10);
+                                const taskDate = new Date(currentWeekStart);
+                                
+                                if (dayIndex === 0) { // Sunday
+                                    taskDate.setDate(currentWeekStart.getDate() + 6);
+                                } else { // Monday-Saturday
+                                    taskDate.setDate(currentWeekStart.getDate() + (dayIndex - 1));
+                                }
+                                
+                                taskDate.setMinutes(taskDate.getMinutes() - taskDate.getTimezoneOffset());
+                                
+                                tasksToCreate.push({
+                                    ...commonData,
+                                    date: taskDate.toISOString().split('T')[0],
+                                });
                             });
-                        });
+                        }
+                        await addMultipleTasks(tasksToCreate);
+                    } else {
+                        await addTask(commonData);
                     }
-                    await addMultipleTasks(tasksToCreate);
-                } else {
-                    await addTask(commonData);
                 }
             }
             handleCloseModal();
         } catch (error) {
             console.error("Error saving task:", error);
-            // In a real app, you might want to show a toast notification to the user here.
         } finally {
             setIsSaving(false);
         }
@@ -183,7 +191,6 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
         }
     };
 
-    // Handlers for the EditOptionsModal (Edit)
     const handleEditThisOne = () => {
         if (!taskForRecurrenceModal) return;
         setEditMode('single');
@@ -202,15 +209,9 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
         setRecurrenceModalType(null);
     };
 
-    // Handlers for the EditOptionsModal (Delete)
     const handleDeleteThisOne = () => {
         if (!taskForRecurrenceModal) return;
-        promptForPin(() => {
-            // To delete just one, we detach it from the series first by removing the ID,
-            // then we can delete it without a cascading effect.
-            // A simpler way is just to delete it directly, since our delete function works by ID.
-             deleteTask(taskForRecurrenceModal.id)
-        });
+        promptForPin(() => deleteTask(taskForRecurrenceModal.id));
         setTaskForRecurrenceModal(null);
         setRecurrenceModalType(null);
     };
@@ -222,7 +223,6 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
         setRecurrenceModalType(null);
     };
 
-    // PIN Modal Logic
     const promptForPin = (action: () => void) => {
         setPinProtectedAction(() => action);
         setIsPinModalOpen(true);
@@ -247,28 +247,55 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
         return d.toISOString().split('T')[0];
     }, [selectedDate]);
 
+    const filteredTasks = useMemo(() => {
+        return tasks.filter(task => employeeFilter === 'All' || task.employee === employeeFilter);
+    }, [tasks, employeeFilter]);
+
     const dailyTasks = useMemo(() => {
-        return tasks.filter(task => {
-            const isSameDay = task.date === selectedDateStr;
-            const matchesEmployee = employeeFilter === 'All' || task.employee === employeeFilter;
-            return isSameDay && matchesEmployee;
-        });
-    }, [tasks, selectedDateStr, employeeFilter]);
+        return filteredTasks.filter(task => task.date === selectedDateStr);
+    }, [filteredTasks, selectedDateStr]);
     
+    const pendingTasks = useMemo(() => {
+        return filteredTasks.filter(task => !task.date);
+    }, [filteredTasks]);
+    
+    const TabButton: React.FC<{ view: OperationsView, label: string, icon: 'calendar' | 'clipboard-list', count: number }> = ({ view, label, icon, count }) => (
+        <button
+            onClick={() => setActiveView(view)}
+            className={`flex items-center gap-2 py-2 px-4 text-sm md:text-base font-bold border-b-4 transition-colors ${activeView === view ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+        >
+            <Icon name={icon} size={18} />
+            {label}
+            {count > 0 && <span className="text-xs bg-gray-300 text-gray-700 font-bold rounded-full px-2">{count}</span>}
+        </button>
+    );
+
     return (
         <div className="flex flex-col h-full bg-gray-50">
             {criticalTasks.length > 0 && <CriticalTasksBar tasksWithDiff={criticalTasks} />}
 
             <div className="operations-header flex flex-col p-4 border-b border-gray-200 gap-4 flex-shrink-0">
-                <div className="flex flex-col md:flex-row justify-between items-center w-full gap-4">
-                     <WeekdaySelector selectedDate={selectedDate} setSelectedDate={setSelectedDate} />
-                     <div className="flex gap-2 w-full md:w-auto">
-                        <button onClick={() => { setEditMode('new'); setEditingTask(null); setIsModalOpen(true); }} className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm w-full justify-center">
+                <div className="flex justify-between items-center w-full gap-4">
+                     <div className="flex">
+                        <TabButton view="agenda" label="Agenda Diaria" icon="calendar" count={0} />
+                        <TabButton view="pending" label="Tareas Pendientes" icon="clipboard-list" count={pendingTasks.length} />
+                    </div>
+                     <div className="flex-shrink-0">
+                        <button onClick={() => { setEditMode('new'); setEditingTask(null); setIsModalOpen(true); }} className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors text-sm">
                             <Icon name="plus-circle" size={16} />
-                            Añadir Tarea
+                            <span className="hidden md:inline">Añadir Tarea</span>
+                            <span className="md:hidden">Añadir</span>
                         </button>
                     </div>
                 </div>
+                {activeView === 'agenda' && (
+                    <WeekdaySelector 
+                        selectedDate={selectedDate} 
+                        setSelectedDate={setSelectedDate} 
+                        tasks={tasks}
+                        users={users}
+                    />
+                )}
                 <div className="flex items-center gap-2 bg-gray-200 rounded-lg p-1 w-full overflow-x-auto">
                     <button 
                         onClick={() => setEmployeeFilter('All')}
@@ -289,13 +316,21 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
             </div>
             
             <div className="flex-grow overflow-auto relative">
-                <DailyAgendaView 
-                    tasks={dailyTasks} 
-                    onEditTask={handleEdit} 
-                    onUpdateStatus={updateTaskStatus}
-                    onUpdateTask={updateTask}
-                    users={users}
-                />
+                {activeView === 'agenda' ? (
+                    <DailyAgendaView 
+                        tasks={dailyTasks} 
+                        onEditTask={handleEdit} 
+                        onUpdateStatus={updateTaskStatus}
+                        onUpdateTask={updateTask}
+                        users={users}
+                    />
+                ) : (
+                    <PendingTasksList
+                        tasks={pendingTasks}
+                        onEditTask={handleEdit}
+                        users={users}
+                    />
+                )}
             </div>
 
             <TaskFormModal 
