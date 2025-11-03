@@ -18,6 +18,7 @@ const ICONS: Record<string, React.ReactNode> = {
   'list': <><line x1="8" x2="21" y1="6" y2="6" /><line x1="8" x2="21" y1="12" y2="12" /><line x1="8" x2="21" y1="18" y2="18" /><line x1="3" x2="3.01" y1="6" y2="6" /><line x1="3" x2="3.01" y1="12" y2="12" /><line x1="3" x2="3.01" y1="18" y2="18" /></>,
   'map-pin': <><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></>,
   'menu': <><path d="M4 6h16M4 12h16M4 18h16"/></>,
+  'message-square': <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
   'minus': <path d="M5 12h14" />,
   'pencil': <><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></>,
   'play-circle': <><circle cx="12" cy="12" r="10" /><polygon points="10 8 16 12 10 16 10 8" /></>,
@@ -43,9 +44,10 @@ interface IconProps {
     name: keyof typeof ICONS;
     className?: string;
     size?: number;
+    title?: string;
 }
 
-const Icon: React.FC<IconProps> = ({ name, className = '', size = 24 }) => {
+const Icon: React.FC<IconProps> = ({ name, className = '', size = 24, title }) => {
     return (
         <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -59,6 +61,7 @@ const Icon: React.FC<IconProps> = ({ name, className = '', size = 24 }) => {
             strokeLinejoin="round"
             className={className}
         >
+            {title && <title>{title}</title>}
             {ICONS[name]}
         </svg>
     );

@@ -1,5 +1,6 @@
 import React from 'react';
 import Modal from '../../components/Modal';
+import Icon from '../../components/Icon';
 
 interface EditOptionsModalProps {
     isOpen: boolean;
@@ -16,6 +17,9 @@ const EditOptionsModal: React.FC<EditOptionsModalProps> = ({ isOpen, onClose, on
     const option1Desc = `La acción solo se aplicará a esta instancia. El resto de la serie no se verá afectado.`;
     const option2Title = isDelete ? 'Eliminar esta y futuras tareas' : 'Editar esta y futuras tareas';
     const option2Desc = `La acción se aplicará a esta y a todas las repeticiones futuras de la serie.`;
+    
+    const singleIcon = isDelete ? 'trash-2' : 'pencil';
+    const futureIcon = 'calendar';
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={title}>
@@ -24,15 +28,25 @@ const EditOptionsModal: React.FC<EditOptionsModalProps> = ({ isOpen, onClose, on
                     onClick={onSelectThisOne}
                     className="p-4 bg-gray-100 rounded-lg border-2 border-transparent hover:border-blue-500 transition-all text-left"
                 >
-                    <h4 className="font-bold text-gray-800">{option1Title}</h4>
-                    <p className="text-sm text-gray-600 mt-1">{option1Desc}</p>
+                    <div className="flex items-center gap-4">
+                        <Icon name={singleIcon} size={24} className="text-blue-600 flex-shrink-0" />
+                        <div>
+                            <h4 className="font-bold text-gray-800">{option1Title}</h4>
+                            <p className="text-sm text-gray-600 mt-1">{option1Desc}</p>
+                        </div>
+                    </div>
                 </button>
                 <button
                     onClick={onSelectFuture}
                     className="p-4 bg-gray-100 rounded-lg border-2 border-transparent hover:border-blue-500 transition-all text-left"
                 >
-                    <h4 className="font-bold text-gray-800">{option2Title}</h4>
-                    <p className="text-sm text-gray-600 mt-1">{option2Desc}</p>
+                    <div className="flex items-center gap-4">
+                        <Icon name={futureIcon} size={24} className="text-blue-600 flex-shrink-0" />
+                        <div>
+                             <h4 className="font-bold text-gray-800">{option2Title}</h4>
+                             <p className="text-sm text-gray-600 mt-1">{option2Desc}</p>
+                        </div>
+                    </div>
                 </button>
 
                 <div className="flex justify-end mt-4">

@@ -48,7 +48,7 @@ const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, o
         ...style,
         borderWidth: '2px',
         borderColor: task.status === 'inprogress' ? userColor : 'transparent',
-        backgroundColor: '#f9fafb' // neutral bg-gray-50
+        backgroundColor: '#f9fafb' // bg-gray-50 for normal
     };
 
     const textStyle = {
@@ -64,7 +64,12 @@ const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, o
             <div className="flex-shrink-0 w-1 h-full rounded-full" style={{ backgroundColor: userColor }}></div>
             <div className="flex-grow flex flex-col min-w-0 min-h-0">
                 <div className="flex-grow overflow-hidden">
-                    <p className={`font-bold text-sm break-words ${task.status === 'done' ? 'line-through' : ''}`} style={textStyle}>{task.text}</p>
+                    <p className={`font-bold text-sm break-words ${task.status === 'done' ? 'line-through' : ''}`} style={textStyle}>
+                        {task.isCritical && (
+                            <Icon name="alert-triangle" size={14} className="inline-block mr-1 text-red-600" title="Tarea Crítica" />
+                        )}
+                        {task.text}
+                    </p>
                     <p className={`text-xs ${task.status === 'done' ? 'line-through' : ''}`} style={textStyle}>
                         {task.time} - {formattedEndTime} ({task.duration} min)
                     </p>
@@ -73,6 +78,9 @@ const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, o
                     <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/60" style={textStyle}>{task.employee}</span>
                      
                     <div className="flex items-center gap-2" style={textStyle}>
+                        {task.notes && task.notes.trim() !== '' && (
+                            <Icon name="message-square" size={14} title="Esta tarea tiene notas" />
+                        )}
                         {totalSubtasks > 0 && (
                             <div className="flex items-center gap-1 text-xs font-semibold">
                                 <Icon name="list" size={14} />

@@ -40,6 +40,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
     const [shift, setShift] = useState<Shift>('pre-apertura');
     const [zone, setZone] = useState('');
     const [isCritical, setIsCritical] = useState(false);
+    const [notes, setNotes] = useState('');
     const [recurrence, setRecurrence] = useState<'once' | 'weekly'>('once');
     const [selectedDays, setSelectedDays] = useState<string[]>([]);
     const [recurrenceWeeks, setRecurrenceWeeks] = useState('4');
@@ -71,6 +72,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
             setShift(task?.shift || 'pre-apertura');
             setZone(task?.zone || '');
             setIsCritical(task?.isCritical || false);
+            setNotes(task?.notes || '');
             setSubtasks(task?.subtasks || []);
             setNewSubtaskText('');
 
@@ -157,6 +159,7 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
             zone,
             isCritical,
             date: date,
+            notes,
             recurrence,
             selectedDays,
             recurrenceWeeks,
@@ -280,6 +283,17 @@ const TaskFormModal: React.FC<TaskFormModalProps> = ({ isOpen, onClose, onSave, 
                      <div className="form-group mt-4">
                         <label className="text-sm font-medium text-gray-600">Zona (Opcional)</label>
                         <input type="text" value={zone} onChange={e => setZone(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md bg-gray-50" />
+                    </div>
+
+                    <div className="form-group mt-4">
+                        <label className="text-sm font-medium text-gray-600">Notas (Opcional)</label>
+                        <textarea
+                            value={notes}
+                            onChange={e => setNotes(e.target.value)}
+                            rows={3}
+                            placeholder="Añade comentarios o detalles adicionales aquí..."
+                            className="w-full p-2 border border-gray-300 rounded-md bg-gray-50"
+                        />
                     </div>
 
                     <div className="form-group mt-2">

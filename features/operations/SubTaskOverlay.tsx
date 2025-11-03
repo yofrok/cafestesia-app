@@ -61,10 +61,19 @@ const SubTaskOverlay: React.FC<SubtaskOverlayProps> = ({ task, onClose, onUpdate
                 </header>
 
                 <div className="p-4 flex-grow overflow-y-auto max-h-[50vh]">
+                    {task.notes && task.notes.trim() !== '' && (
+                        <div className="mb-4">
+                            <h4 className="font-bold text-gray-700 mb-2">Notas</h4>
+                            <div className="p-3 bg-yellow-50 border-l-4 border-yellow-400 text-gray-800 text-sm rounded-r-lg whitespace-pre-wrap">
+                                {task.notes}
+                            </div>
+                        </div>
+                    )}
+                    
                     {totalCount > 0 && (
                         <div className="mb-4">
                             <div className="flex justify-between items-center text-sm mb-1">
-                                <span className="font-semibold text-gray-600">Progreso</span>
+                                <span className="font-semibold text-gray-600">Progreso de Subtareas</span>
                                 <span>{completedCount} / {totalCount}</span>
                             </div>
                             <div className="w-full bg-gray-200 rounded-full h-2.5">
@@ -95,8 +104,8 @@ const SubTaskOverlay: React.FC<SubtaskOverlayProps> = ({ task, onClose, onUpdate
                         ))}
                     </div>
 
-                    {totalCount === 0 && (
-                        <p className="text-center text-gray-500 py-6">No hay subtareas. ¡Añade la primera!</p>
+                    {totalCount === 0 && (!task.notes || task.notes.trim() === '') && (
+                        <p className="text-center text-gray-500 py-6">No hay subtareas ni notas. ¡Añade la primera!</p>
                     )}
                 </div>
 
