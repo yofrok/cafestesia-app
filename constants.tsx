@@ -73,8 +73,8 @@ export const MOCK_INVENTORY_ITEMS: Omit<InventoryItem, 'id'>[] = [
 
 export const INVENTORY_UNITS = ['kg', 'lt', 'pz', 'g', 'ml', 'unidad(es)'];
 
-export const TIMELINE_START_HOUR = 8;
-export const TIMELINE_END_HOUR = 22;
+export const TIMELINE_START_HOUR = 0;
+export const TIMELINE_END_HOUR = 24;
 
 export const TASK_DURATIONS = [
     { value: 5, label: '5 min' },

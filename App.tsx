@@ -191,6 +191,7 @@ const App: React.FC = () => {
                         inProgressTasks={inProgressTasks}
                         isOpen={isMobileSidebarOpen}
                         onClose={() => setIsMobileSidebarOpen(false)}
+                        users={usersHook.users}
                     />
 
                     <main className="main-content flex flex-col overflow-y-auto h-full">

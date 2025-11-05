@@ -1,5 +1,5 @@
 import React from 'react';
-import { Screen, KanbanTask, InventoryItem, ProductionProcess } from '../types';
+import { Screen, KanbanTask, InventoryItem, ProductionProcess, User } from '../types';
 import Icon from './Icon';
 
 interface SidebarProps {
@@ -11,13 +11,22 @@ interface SidebarProps {
     inProgressTasks: KanbanTask[];
     isOpen: boolean;
     onClose: () => void;
+    users: User[];
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeScreen, setActiveScreen, processes, urgentTasks, shoppingListItems, inProgressTasks, isOpen, onClose }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeScreen, setActiveScreen, processes, urgentTasks, shoppingListItems, inProgressTasks, isOpen, onClose, users }) => {
 
     const handleNavClick = (screen: Screen) => {
         setActiveScreen(screen);
         onClose();
+    };
+
+    const handleNotifyClick = (e: React.MouseEvent, task: KanbanTask, user: User) => {
+        e.stopPropagation(); // Don't trigger the main widget click
+        if (!user.phone) return;
+        const message = `Hola ${user.name}, tienes una tarea crítica: "${task.text}" programada para las ${task.time}.`;
+        const whatsappUrl = `https://wa.me/${user.phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_blank');
     };
     
     const NavButton: React.FC<{ active: boolean, onClick: () => void, children: React.ReactNode }> = ({ active, onClick, children }) => {
@@ -85,14 +94,30 @@ const Sidebar: React.FC<SidebarProps> = ({ activeScreen, setActiveScreen, proces
 
                 {urgentTasks.length > 0 && (
                      <AlertWidget title="Operaciones Urgentes" onClick={() => handleNavClick(Screen.Operations)}>
-                        {urgentTasks.map(({ task, diff }) => (
-                            <div key={task.id} className="text-sm mb-2 last:mb-0">
-                                <p className="font-bold text-gray-800">{task.text}</p>
-                                <p className={`text-xs font-semibold ${diff <= 0 ? 'text-red-600 animate-pulse' : 'text-blue-600'}`}>
-                                    {task.time} {diff <= 0 ? '(¡AHORA!)' : `(en ${diff} min)`}
-                                </p>
-                            </div>
-                        ))}
+                        {urgentTasks.map(({ task, diff }) => {
+                            const user = users.find(u => u.name === task.employee);
+                            return (
+                                <div key={task.id} className="text-sm mb-2 last:mb-0">
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex-grow">
+                                            <p className="font-bold text-gray-800">{task.text}</p>
+                                            <p className={`text-xs font-semibold ${diff <= 0 ? 'text-red-600 animate-pulse' : 'text-blue-600'}`}>
+                                                {task.time} {diff <= 0 ? '(¡AHORA!)' : `(en ${diff} min)`}
+                                            </p>
+                                        </div>
+                                        {user?.phone && (
+                                            <button
+                                                onClick={(e) => handleNotifyClick(e, task, user)}
+                                                className="p-2 -mr-2 -mt-1 text-green-600 hover:bg-green-100 rounded-full transition-colors flex-shrink-0"
+                                                title={`Notificar a ${user.name} por WhatsApp`}
+                                            >
+                                                <Icon name="whatsapp" size={20} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </AlertWidget>
                 )}
 
@@ -100,7 +125,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeScreen, setActiveScreen, proces
                     <AlertWidget title="Inventario Crítico" onClick={() => handleNavClick(Screen.Inventory)}>
                         <div className="flex items-center gap-3 font-bold text-sm text-gray-800">
                            <Icon name="shopping-cart" className="text-red-500" size={20} />
-                           <span>{shoppingListItems.length} producto{shoppingListItems.length > 1 ? 's' : ''} en la lista de compras</span>
+                           <span>{shoppingListItems.length > 1 ? `${shoppingListItems.length} productos` : '1 producto'} en la lista de compras</span>
                         </div>
                     </AlertWidget>
                 )}

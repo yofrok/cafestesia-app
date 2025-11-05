@@ -64,7 +64,7 @@ const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, o
             <div className="flex-shrink-0 w-1 h-full rounded-full" style={{ backgroundColor: userColor }}></div>
             <div className="flex-grow flex flex-col min-w-0 min-h-0">
                 <div className="flex-grow overflow-hidden">
-                    <p className={`font-bold text-sm break-words ${task.status === 'done' ? 'line-through' : ''}`} style={textStyle}>
+                    <p className={`font-bold text-sm truncate ${task.status === 'done' ? 'line-through' : ''}`} style={textStyle}>
                         {task.isCritical && (
                             <Icon name="alert-triangle" size={14} className="inline-block mr-1 text-red-600" title="Tarea Crítica" />
                         )}

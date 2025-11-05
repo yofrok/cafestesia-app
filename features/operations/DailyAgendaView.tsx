@@ -12,17 +12,33 @@ interface DailyAgendaViewProps {
     users: User[];
 }
 
-const EXPANDED_HOUR_HEIGHT_PX = 120; // Height for hours with tasks
-const COMPRESSED_HOUR_HEIGHT_PX = 30; // Height for empty hours
+const PIXELS_PER_MINUTE = 2.5;
+const GAP_THRESHOLD_MINUTES = 90; // Compress gaps larger than 1.5 hours
+const MIN_BREAK_MINUTES = 15; // Show an indicator for breaks >= 15 minutes
+const COMPRESSED_GAP_HEIGHT = 70; // The height of the "6h 0min..." block
+const MIN_TASK_HEIGHT = 90; // Minimum height for a task card
+const SHORT_BREAK_HEIGHT = 40; // Fixed height for short break indicators
 
 interface TaskLayout {
     task: KanbanTask;
     top: number;
     height: number;
-    left: number;
-    width: number;
+    left: number; // Final % left
+    width: number; // Final % width
     zIndex: number;
 }
+
+const formatGapDuration = (minutes: number) => {
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    return `${h}h ${m}min entre tareas`;
+};
+
+const timeToMinutes = (time: string) => {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+};
+
 
 const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus, onEditTask, onUpdateTask, users }) => {
     const [now, setNow] = useState(new Date());
@@ -40,129 +56,268 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
         return () => clearInterval(timer);
     }, []);
 
-    // This effect synchronizes the currently open subtask overlay with the main tasks list.
-    // When a subtask is updated, the `tasks` prop changes, and this effect finds the
-    // corresponding updated task to refresh the overlay's view instantly.
     useEffect(() => {
         if (taskForSubtasks) {
             const updatedTask = tasks.find(t => t.id === taskForSubtasks.id);
             if (updatedTask) {
                 setTaskForSubtasks(updatedTask);
             } else {
-                // If the task is no longer in the list (e.g., deleted), close the overlay.
                 setTaskForSubtasks(null);
             }
         }
     }, [tasks, taskForSubtasks]);
 
-    const tasksByHour = useMemo(() => {
-        const byHour: Record<number, boolean> = {};
-        tasks.forEach(task => {
-            if (task.time) {
-                const hour = parseInt(task.time.split(':')[0], 10);
-                byHour[hour] = true;
+    const { timelineItems, totalHeight, getPositionForMinute } = useMemo(() => {
+        const items: any[] = [];
+        const sortedTasks = tasks
+            .filter(t => t.time)
+            .sort((a, b) => a.time!.localeCompare(b.time!));
+
+        let lastEndMinute = TIMELINE_START_HOUR * 60;
+
+        sortedTasks.forEach(task => {
+            const startMinute = timeToMinutes(task.time!);
+            const endMinute = startMinute + task.duration;
+
+            const gap = startMinute - lastEndMinute;
+            if (gap > GAP_THRESHOLD_MINUTES) {
+                items.push({ type: 'gap', startMinute: lastEndMinute, duration: gap });
+            } else if (gap >= MIN_BREAK_MINUTES) {
+                items.push({ type: 'short_break', startMinute: lastEndMinute, duration: gap });
+            } else if (gap > 0) {
+                items.push({ type: 'empty', startMinute: lastEndMinute, duration: gap });
             }
-        });
-        return byHour;
-    }, [tasks]);
-
-    const hourLayouts = useMemo(() => {
-        let currentTop = 0;
-        const layouts: { hour: number; top: number; height: number }[] = [];
-        for (let hour = TIMELINE_START_HOUR; hour <= TIMELINE_END_HOUR; hour++) {
-            const hasTasks = !!tasksByHour[hour];
-            const height = hasTasks ? EXPANDED_HOUR_HEIGHT_PX : COMPRESSED_HOUR_HEIGHT_PX;
-            layouts.push({ hour, top: currentTop, height });
-            currentTop += height;
-        }
-        return layouts;
-    }, [tasksByHour]);
-
-    const totalHeight = hourLayouts.length > 0 ? hourLayouts[hourLayouts.length - 1].top + hourLayouts[hourLayouts.length - 1].height : 0;
-
-    const timeToPosition = (time: string): number => {
-        const [hours, minutes] = time.split(':').map(Number);
-        const hourLayout = hourLayouts.find(l => l.hour === hours);
-        if (!hourLayout) return 0; // Fallback for times outside range
-
-        const minuteOffset = (minutes / 60) * hourLayout.height;
-        return hourLayout.top + minuteOffset;
-    };
-    
-    const taskLayouts = useMemo(() => {
-        const plannedTasks = tasks.filter(t => !!t.time);
-        const sortedTasks = [...plannedTasks].sort((a, b) => a.time!.localeCompare(b.time!) || b.duration - a.duration);
-        const layouts: TaskLayout[] = [];
-
-        for (const task of sortedTasks) {
-            const top = timeToPosition(task.time!);
-            const taskStart = new Date(`${task.date}T${task.time}`).getTime();
-            const taskEnd = taskStart + task.duration * 60000;
-            const hourLayout = hourLayouts.find(l => l.hour === parseInt(task.time!.split(':')[0], 10));
-            const hourHeight = hourLayout ? hourLayout.height : EXPANDED_HOUR_HEIGHT_PX;
-            const height = (task.duration / 60) * hourHeight;
             
-            const collidingTasks: TaskLayout[] = [];
-            for (const placedLayout of layouts) {
-                const placedStart = new Date(`${placedLayout.task.date}T${placedLayout.task.time}`).getTime();
-                const placedEnd = placedStart + placedLayout.task.duration * 60000;
+            items.push({ type: 'task', task, startMinute, duration: task.duration });
+            
+            lastEndMinute = Math.max(lastEndMinute, endMinute);
+        });
+        
+        const finalGap = (TIMELINE_END_HOUR * 60) - lastEndMinute;
+        if (finalGap > GAP_THRESHOLD_MINUTES) {
+            items.push({ type: 'gap', startMinute: lastEndMinute, duration: finalGap });
+        } else if (finalGap >= MIN_BREAK_MINUTES) {
+            items.push({ type: 'short_break', startMinute: lastEndMinute, duration: finalGap });
+        } else if (finalGap > 0) {
+            items.push({ type: 'empty', startMinute: lastEndMinute, duration: finalGap });
+        }
 
-                if (taskStart < placedEnd && taskEnd > placedStart) {
-                    collidingTasks.push(placedLayout);
+        let currentY = 0;
+        const positionedItems = items.map(item => {
+            const top = currentY;
+            let height = 0;
+            if (item.type === 'task') {
+                height = Math.max(item.duration * PIXELS_PER_MINUTE, MIN_TASK_HEIGHT);
+            } else if (item.type === 'gap') {
+                height = COMPRESSED_GAP_HEIGHT;
+            } else if (item.type === 'short_break') {
+                height = SHORT_BREAK_HEIGHT;
+            } else if (item.type === 'empty') {
+                height = item.duration * PIXELS_PER_MINUTE;
+            }
+            currentY += height;
+            return { ...item, top, height };
+        });
+
+        const getPosition = (minute: number) => {
+            for (const item of positionedItems) {
+                if (minute >= item.startMinute && minute < item.startMinute + item.duration) {
+                    const minuteIntoItem = minute - item.startMinute;
+                    if (item.type === 'task' || item.type === 'empty') {
+                        return item.top + minuteIntoItem * PIXELS_PER_MINUTE;
+                    } else if (item.type === 'gap' || item.type === 'short_break') {
+                        return item.top + (minuteIntoItem / item.duration) * item.height;
+                    }
+                }
+            }
+            // Default for times outside any specific item
+            const lastItem = positionedItems[positionedItems.length - 1];
+            if (lastItem) {
+                 return lastItem.top + lastItem.height;
+            }
+            return (minute - TIMELINE_START_HOUR * 60) * PIXELS_PER_MINUTE;
+        };
+        
+        return { timelineItems: positionedItems, totalHeight: currentY, getPositionForMinute: getPosition };
+    }, [tasks]);
+    
+    const taskLayouts = useMemo((): TaskLayout[] => {
+        const positionedTasks = timelineItems.filter(item => item.type === 'task');
+        if (positionedTasks.length === 0) return [];
+    
+        const layouts: TaskLayout[] = [];
+        const processedTaskIds = new Set<string>();
+    
+        // Sort all tasks by start time initially
+        const sortedByTime = [...positionedTasks].sort((a, b) => a.startMinute - b.startMinute);
+    
+        for (const taskItem of sortedByTime) {
+            if (processedTaskIds.has(taskItem.task.id)) {
+                continue;
+            }
+    
+            // 1. Build the full, transitive collision group based on ACTUAL TIME overlap
+            const collisionGroup: (typeof positionedTasks[0])[] = [];
+            const queue = [taskItem];
+            const visitedInGroup = new Set<string>([taskItem.task.id]);
+    
+            while (queue.length > 0) {
+                const current = queue.shift()!;
+                collisionGroup.push(current);
+    
+                const currentStart = current.startMinute;
+                const currentEnd = currentStart + current.task.duration;
+    
+                for (const other of sortedByTime) {
+                    if (!visitedInGroup.has(other.task.id)) {
+                        const otherStart = other.startMinute;
+                        const otherEnd = otherStart + other.task.duration;
+    
+                        // Correct time-based collision detection
+                        const collides = (currentStart < otherEnd) && (currentEnd > otherStart);
+                        
+                        if (collides) {
+                            visitedInGroup.add(other.task.id);
+                            queue.push(other);
+                        }
+                    }
                 }
             }
             
-            let col = 0;
-            while (collidingTasks.some(l => l.left === col)) {
-                col++;
+            collisionGroup.forEach(item => processedTaskIds.add(item.task.id));
+            
+            // 2. Assign columns based on ACTUAL time overlap within the group
+            collisionGroup.sort((a, b) => a.startMinute - b.startMinute);
+            
+            const columns: (typeof collisionGroup)[] = [];
+            for (const event of collisionGroup) {
+                let placed = false;
+                for (const col of columns) {
+                    const lastInCol = col[col.length - 1];
+                    const lastEventEndTime = lastInCol.startMinute + lastInCol.task.duration;
+                    
+                    if (event.startMinute >= lastEventEndTime) {
+                        col.push(event);
+                        placed = true;
+                        break;
+                    }
+                }
+                if (!placed) {
+                    columns.push([event]);
+                }
             }
-            
-            layouts.push({ task, top, height, left: col, width: 1, zIndex: col });
-        }
-        
-        // Post-process to adjust width and left based on collisions
-         return layouts.map((layout, _, allLayouts) => {
-            const { task } = layout;
-            const taskStart = new Date(`${task.date}T${task.time}`).getTime();
-            const taskEnd = taskStart + task.duration * 60000;
-
-            const concurrentTasks = allLayouts.filter(otherLayout => {
-                const otherStart = new Date(`${otherLayout.task.date}T${otherLayout.task.time}`).getTime();
-                const otherEnd = otherStart + otherLayout.task.duration * 60000;
-                return taskStart < otherEnd && taskEnd > otherStart;
+    
+            // 3. Calculate final layout properties for this group
+            const numColumns = columns.length;
+            columns.forEach((col, colIndex) => {
+                col.forEach(item => {
+                    layouts.push({
+                        task: item.task,
+                        top: item.top,
+                        height: item.height,
+                        width: 100 / numColumns,
+                        left: (colIndex / numColumns) * 100,
+                        zIndex: colIndex + 1,
+                    });
+                });
             });
-            
-            const cols = new Set(concurrentTasks.map(l => l.left));
-            const numCols = cols.size;
-            
-            let myColIndex = 0;
-            const sortedCols = Array.from(cols).sort((a, b) => a - b);
-            myColIndex = sortedCols.indexOf(layout.left);
+        }
+        return layouts;
+    }, [timelineItems]);
 
-            return {
-                ...layout,
-                width: 100 / numCols,
-                left: (myColIndex / numCols) * 100,
-            };
+
+    const timelineMarkers = useMemo(() => {
+        const markers = new Map<number, string>();
+        const taskLayoutMap = new Map(taskLayouts.map(l => [l.task.id, l]));
+    
+        const hoursToShow = new Set<number>();
+        if (timelineItems.length === 0) {
+            for(let i = TIMELINE_START_HOUR; i <= TIMELINE_END_HOUR; i++) hoursToShow.add(i);
+        } else {
+            timelineItems.forEach(item => {
+                const startHour = Math.floor(item.startMinute / 60);
+                const endMinute = item.startMinute + item.duration;
+                const endHour = Math.ceil(endMinute / 60);
+    
+                if (item.type === 'gap') {
+                    hoursToShow.add(startHour);
+                    hoursToShow.add(endHour);
+                } else if (item.type === 'task') {
+                    hoursToShow.add(startHour);
+                } else if ( (item.type === 'empty' || item.type === 'short_break') && item.startMinute % 60 === 0) {
+                     hoursToShow.add(startHour);
+                }
+            });
+            hoursToShow.add(TIMELINE_START_HOUR);
+            hoursToShow.add(TIMELINE_END_HOUR);
+        }
+    
+        hoursToShow.forEach(hour => {
+            if (hour > TIMELINE_END_HOUR) return;
+            markers.set(hour * 60, `${String(hour).padStart(2, '0')}:00`);
         });
+    
+        timelineItems.forEach(item => {
+            if (item.type === 'task') {
+                const { startMinute, task } = item;
+                
+                const layout = taskLayoutMap.get(task.id);
+                if (layout && layout.left > 0) {
+                    return;
+                }
 
-    }, [tasks, hourLayouts]);
+                const hour = Math.floor(startMinute / 60);
+                const minute = startMinute % 60;
+                if (minute !== 0) {
+                    markers.set(startMinute, `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`);
+                }
+            }
+        });
+    
+        const sortedMarkers = Array.from(markers.entries())
+            .map(([minute, label]) => ({ minute, label }))
+            .sort((a, b) => a.minute - b.minute);
+    
+        if (sortedMarkers.length < 2) return sortedMarkers;
+    
+        const finalMarkers = [sortedMarkers[0]];
+    
+        for (let i = 1; i < sortedMarkers.length; i++) {
+            const lastMarker = finalMarkers[finalMarkers.length - 1];
+            const currentMarker = sortedMarkers[i];
+            
+            const lastPos = getPositionForMinute(lastMarker.minute);
+            const currentPos = getPositionForMinute(currentMarker.minute);
+
+            if (currentPos - lastPos > 20) { // Min 20px distance
+                finalMarkers.push(currentMarker);
+            }
+        }
+    
+        return finalMarkers;
+    }, [timelineItems, getPositionForMinute, taskLayouts]);
 
 
-    const currentTimePosition = timeToPosition(`${now.getHours()}:${now.getMinutes()}`);
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const currentTimePosition = getPositionForMinute(nowMinutes);
     
     return (
         <div className="p-4 md:p-6 h-full relative">
             <div className="relative z-10" style={{ height: `${totalHeight}px` }}>
-                {/* Hour markers */}
-                {hourLayouts.map(({ hour, top, height }) => (
-                    <div key={hour} className="absolute w-full" style={{ top: `${top}px`, height: `${height}px` }}>
-                        <span className="absolute -top-3 left-0 text-sm font-semibold text-gray-400 w-16 text-right pr-4">
-                            {hour}:00
-                        </span>
-                        <div className="h-px bg-gray-200 ml-16"></div>
-                    </div>
-                ))}
+                {/* Time markers */}
+                {timelineMarkers.map(({ minute, label }) => {
+                    const top = getPositionForMinute(minute);
+                    if (top > totalHeight + 1 || minute > TIMELINE_END_HOUR * 60) return null;
+                    const isHour = minute % 60 === 0;
+                    return (
+                        <div key={minute} className="absolute w-full" style={{ top: `${top}px` }}>
+                            <span className={`absolute -top-2.5 left-0 text-xs w-16 text-right pr-4 ${isHour ? 'font-semibold text-gray-500' : 'font-normal text-gray-400'}`}>
+                                {label}
+                            </span>
+                            <div className={`h-px ml-16 ${isHour ? 'bg-gray-200' : 'bg-gray-200/60'}`}></div>
+                        </div>
+                    );
+                })}
                 
                 {/* Current time indicator */}
                 {currentTimePosition >= 0 && currentTimePosition <= totalHeight && (
@@ -171,8 +326,28 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
                     </div>
                 )}
                
-                {/* Task Cards */}
                 <div className="absolute top-0 bottom-0 left-16 right-0">
+                    {/* Compressed Gap markers */}
+                    {timelineItems.filter(item => item.type === 'gap').map(item => (
+                         <div key={`gap-${item.startMinute}`} className="absolute w-full flex items-center" style={{ top: `${item.top}px`, height: `${item.height}px` }}>
+                            <div className="w-full border-t-2 border-dashed border-gray-300 relative">
+                                <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-50 px-2 text-xs font-semibold text-gray-500">
+                                    {formatGapDuration(item.duration)}
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                    {/* Short Break Indicators */}
+                    {timelineItems.filter(item => item.type === 'short_break').map(item => (
+                        <div key={`break-${item.startMinute}`} className="absolute w-full flex items-center" style={{ top: `${item.top}px`, height: `${item.height}px` }}>
+                            <div className="w-full flex items-center justify-center gap-2 text-gray-400">
+                                <div className="flex-grow border-t border-dashed border-gray-300"></div>
+                                <span className="text-xs font-semibold whitespace-nowrap">{Math.round(item.duration)} min libres</span>
+                                <div className="flex-grow border-t border-dashed border-gray-300"></div>
+                            </div>
+                        </div>
+                    ))}
+                    {/* Task Cards */}
                    {taskLayouts.map(({ task, top, height, left, width, zIndex }) => (
                        <AgendaTaskCard 
                            key={task.id}
@@ -183,7 +358,7 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
                            userColor={userColorMap[task.employee] || '#9ca3af'}
                            style={{
                                top: `${top}px`,
-                               height: `${Math.max(height - 4, 80)}px`,
+                               height: `${height - 4}px`, // 4px margin
                                left: `${left}%`,
                                width: `calc(${width}% - 4px)`,
                                zIndex: zIndex,

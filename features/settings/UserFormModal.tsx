@@ -13,11 +13,13 @@ interface UserFormModalProps {
 const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, onDelete, user }) => {
     const [name, setName] = useState('');
     const [color, setColor] = useState('#CCCCCC');
+    const [phone, setPhone] = useState('');
     
     useEffect(() => {
         if (isOpen) {
             setName(user?.name || '');
             setColor(user?.color || '#CCCCCC');
+            setPhone(user?.phone || '');
         }
     }, [isOpen, user]);
 
@@ -25,7 +27,7 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
         e.preventDefault();
         if (!name.trim()) return;
 
-        const userData = { name: name.trim(), color };
+        const userData = { name: name.trim(), color, phone: phone.trim() };
         if (user) {
             onSave({ ...userData, id: user.id });
         } else {
@@ -52,6 +54,16 @@ const UserFormModal: React.FC<UserFormModalProps> = ({ isOpen, onClose, onSave, 
                         onChange={e => setName(e.target.value)} 
                         required 
                         autoFocus
+                        className="w-full p-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Número de WhatsApp (Opcional)</label>
+                    <input
+                        type="tel"
+                        value={phone}
+                        onChange={e => setPhone(e.target.value)}
+                        placeholder="+521234567890"
                         className="w-full p-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                 </div>

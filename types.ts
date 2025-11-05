@@ -51,6 +51,7 @@ export interface User {
     id: string;
     name: string;
     color: string;
+    phone?: string;
 }
 
 export type Shift = 'matutino' | 'pre-apertura' | 'cierre' | 'default';
