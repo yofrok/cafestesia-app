@@ -16,7 +16,7 @@ const PIXELS_PER_MINUTE = 2.5;
 const GAP_THRESHOLD_MINUTES = 90; // Compress gaps larger than 1.5 hours
 const MIN_BREAK_MINUTES = 15; // Show an indicator for breaks >= 15 minutes
 const COMPRESSED_GAP_HEIGHT = 70; // The height of the "6h 0min..." block
-const MIN_TASK_HEIGHT = 90; // Minimum height for a task card
+const MIN_TASK_HEIGHT = 100; // Minimum height for a task card
 const SHORT_BREAK_HEIGHT = 40; // Fixed height for short break indicators
 
 interface TaskLayout {
