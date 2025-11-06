@@ -7,9 +7,9 @@ import { useProviders } from './services/useProviders';
 import { useProduction } from './features/baking/useProduction';
 import { useCategories } from './services/useCategories';
 import { useRecipeLog } from './services/useRecipeLog';
-import { useAudioAlerts } from './services/useAudioAlerts';
 import Icon from './components/Icon';
 import { useUsers } from './services/useUsers';
+import AudioUnlockBanner from './components/AudioUnlockBanner';
 
 // --- Code Splitting ---
 const BreadProductionScreen = lazy(() => import('./features/baking/BreadProductionScreen'));
@@ -46,9 +46,8 @@ const App: React.FC = () => {
     const categoriesHook = useCategories();
     const recipeLogHook = useRecipeLog();
     const usersHook = useUsers();
-    const { playAlert } = useAudioAlerts();
     
-    const { processes } = productionHook;
+    const { processes, playNotification, isSuspended, unlockAudio } = productionHook;
     const { tasks } = kanbanHook;
     const { items } = inventoryHook;
     
@@ -104,7 +103,7 @@ const App: React.FC = () => {
         const currentCriticalIds = new Set(criticalAndUpcomingTasks.map(t => `task-${t.task.id}`));
         currentCriticalIds.forEach(id => {
             if (!playedAlerts.current.has(id)) {
-                playAlert();
+                playNotification();
                 playedAlerts.current.add(id);
             }
         });
@@ -114,7 +113,7 @@ const App: React.FC = () => {
                 playedAlerts.current.delete(id);
             }
         });
-    }, [criticalAndUpcomingTasks, playAlert]);
+    }, [criticalAndUpcomingTasks, playNotification]);
 
 
     const sidebarCriticalTasks = useMemo(() => {
@@ -211,6 +210,8 @@ const App: React.FC = () => {
                         </div>
                     </main>
                 </div>
+                
+                {isSuspended && <AudioUnlockBanner onUnlock={unlockAudio} />}
 
             </div>
         </div>

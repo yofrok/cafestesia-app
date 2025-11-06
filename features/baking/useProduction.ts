@@ -32,6 +32,7 @@ const saveState = (state: ProductionProcess[]) => {
 export const useProduction = () => {
     const [processes, setProcesses] = useState<ProductionProcess[]>(loadState);
     const timerRef = useRef<number | null>(null);
+    const pendingStartProcessId = useRef<string | null>(null);
 
     const { 
         isSoundMuted, 
@@ -42,13 +43,12 @@ export const useProduction = () => {
         stopAlarmLoop, 
         playSuccess,
         unlockAudio,
-        audioState
+        isAudioReady,
+        playNotification,
+        isSuspended,
     } = useProductionAlerts();
-
-    const isAudioReady = audioState === 'ready';
     
     const playedWarningsRef = useRef(new Set<string>());
-    const prevProcessesRef = useRef<ProductionProcess[]>([]);
 
     const stopTimer = useCallback(() => {
         if (timerRef.current) {
@@ -56,19 +56,6 @@ export const useProduction = () => {
             timerRef.current = null;
         }
     }, []);
-
-    // Effect to detect state transitions for alarms
-    useEffect(() => {
-        const prevProcesses = prevProcessesRef.current;
-        processes.forEach(p => {
-            const prevP = prevProcesses.find(prev => prev.id === p.id);
-            if (prevP && prevP.state !== 'alarm' && p.state === 'alarm') {
-                playAlarmLoop();
-            }
-        });
-        prevProcessesRef.current = processes;
-    }, [processes, playAlarmLoop]);
-
 
     const tick = useCallback(() => {
         setProcesses(prevProcesses => {
@@ -81,18 +68,20 @@ export const useProduction = () => {
                 hasChanged = true;
                 const elapsedSeconds = Math.round((now - p.lastTickTimestamp) / 1000);
                 
+                const previousStepTimeLeft = p.stepTimeLeft;
                 const newStepTimeLeft = Math.max(0, p.stepTimeLeft - elapsedSeconds);
                 const newTotalTimeLeft = Math.max(0, p.totalTimeLeft - elapsedSeconds);
 
-                // --- 30-Second Warning Logic ---
+                // --- Precise 30-Second Warning Logic ---
                 const warningKey = `${p.id}-${p.currentStepIndex}`;
-                if (newStepTimeLeft > 29 && newStepTimeLeft <= 30 && !playedWarningsRef.current.has(warningKey)) {
+                if (previousStepTimeLeft > 30 && newStepTimeLeft <= 30 && !playedWarningsRef.current.has(warningKey)) {
                     playWarning();
                     playedWarningsRef.current.add(warningKey);
                 }
                 
-                if (newStepTimeLeft === 0) {
-                    // Step finished, go into alarm
+                // When step time hits zero, trigger alarm directly.
+                if (newStepTimeLeft === 0 && previousStepTimeLeft > 0) {
+                    playAlarmLoop(); // Play alarm sound immediately
                     return {
                         ...p,
                         stepTimeLeft: 0,
@@ -113,7 +102,7 @@ export const useProduction = () => {
             if (hasChanged) return updatedProcesses;
             return prevProcesses;
         });
-    }, [playWarning]);
+    }, [playWarning, playAlarmLoop]);
 
     const startTimer = useCallback(() => {
         stopTimer();
@@ -149,6 +138,26 @@ export const useProduction = () => {
         }
         return stopTimer;
     }, [processes, startTimer, stopTimer]);
+    
+    // This effect triggers when the audio is no longer suspended AND there's a process waiting.
+    useEffect(() => {
+        if (!isSuspended && pendingStartProcessId.current) {
+            const processIdToStart = pendingStartProcessId.current;
+            pendingStartProcessId.current = null; // Clear the queue
+
+            // Now, safely start the process and play the sound
+            setProcesses(prev => prev.map(p => {
+                if (p.id !== processIdToStart) return p;
+
+                const isFirstStart = p.state === 'paused' && p.totalTimeLeft === p.totalTime;
+                if (isFirstStart) {
+                    playStart();
+                }
+                return { ...p, state: 'running' as const, lastTickTimestamp: Date.now() };
+            }));
+        }
+    }, [isSuspended, playStart]);
+
 
     const startBakingProcess = useCallback((recipeId: string) => {
         const recipe = RECIPES[recipeId];
@@ -221,27 +230,40 @@ export const useProduction = () => {
     }, [stopAlarmLoop, playSuccess]);
     
     const togglePauseProcess = useCallback((processId: string) => {
-        unlockAudio(); // Unlock on the first actual user interaction.
-        setProcesses(prev => prev.map(p => {
-            if (p.id !== processId || p.state === 'alarm' || p.state === 'finished') return p;
-            
-            const isFirstStart = p.state === 'paused' && p.totalTimeLeft === p.totalTime;
+        const processToToggle = processes.find(p => p.id === processId);
+        if (!processToToggle || processToToggle.state === 'alarm' || processToToggle.state === 'finished') {
+            return;
+        }
 
-            if (p.state === 'running') {
-                return { ...p, state: 'paused' as const };
-            } else { // paused
-                if(isFirstStart) {
+        // Handle pausing a running process (always allowed)
+        if (processToToggle.state === 'running') {
+            setProcesses(prev => prev.map(p => p.id === processId ? { ...p, state: 'paused' as const } : p));
+            return;
+        }
+
+        // Handle starting a paused process
+        if (isSuspended) {
+            // If audio is suspended, queue the start and request unlock
+            pendingStartProcessId.current = processId;
+            unlockAudio();
+        } else {
+            // Audio is already running, proceed immediately
+            setProcesses(prev => prev.map(p => {
+                if (p.id !== processId) return p;
+                
+                const isFirstStart = p.state === 'paused' && p.totalTimeLeft === p.totalTime;
+                if (isFirstStart) {
                     playStart();
                 }
                 return { ...p, state: 'running' as const, lastTickTimestamp: Date.now() };
-            }
-        }));
-    }, [playStart, unlockAudio]);
+            }));
+        }
+    }, [processes, isSuspended, unlockAudio, playStart]);
 
     const cancelProcess = useCallback((processId: string) => {
         stopAlarmLoop();
         setProcesses(prev => prev.filter(p => p.id !== processId));
     }, [stopAlarmLoop]);
 
-    return { processes, startBakingProcess, startHeatingProcess, advanceProcess, togglePauseProcess, cancelProcess, isSoundMuted, toggleSoundMute, isAudioReady };
+    return { processes, startBakingProcess, startHeatingProcess, advanceProcess, togglePauseProcess, cancelProcess, isSoundMuted, toggleSoundMute, isAudioReady, playNotification, isSuspended, unlockAudio };
 };
