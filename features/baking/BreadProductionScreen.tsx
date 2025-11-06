@@ -16,7 +16,7 @@ const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productio
     const [isSelectionModalOpen, setSelectionModalOpen] = useState(false);
     const [processForFeedback, setProcessForFeedback] = useState<ProductionProcess | null>(null);
 
-    const { processes, startBakingProcess, startHeatingProcess, advanceProcess, togglePauseProcess, cancelProcess, isSoundMuted, toggleSoundMute, isAudioReady } = productionHook;
+    const { processes, startBakingProcess, startHeatingProcess, advanceProcess, togglePauseProcess, cancelProcess, isSoundMuted, toggleSoundMute, isAudioReady, isSuspended, unlockAudio } = productionHook;
     const { addFeedback } = recipeLogHook;
 
     const handleAcknowledgeFinish = (process: ProductionProcess) => {
@@ -56,11 +56,11 @@ const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productio
                 <div className="flex items-center gap-4">
                     <h2 className="text-xl font-bold text-blue-700">Procesos Activos</h2>
                     <button
-                        onClick={toggleSoundMute}
-                        title={isSoundMuted ? "Activar Sonidos" : "Silenciar Sonidos"}
-                        className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors"
+                        onClick={isSuspended ? unlockAudio : toggleSoundMute}
+                        title={isSuspended ? "Sonidos bloqueados por el navegador. Haz clic para activar." : isSoundMuted ? "Activar Sonidos" : "Silenciar Sonidos"}
+                        className={`p-2 rounded-full transition-colors ${isSuspended ? 'text-yellow-600 animate-pulse' : 'text-gray-500 hover:text-blue-600 hover:bg-gray-100'}`}
                     >
-                        <Icon name={isSoundMuted ? "volume-x" : "volume-2"} size={20} />
+                        <Icon name={(isSoundMuted || isSuspended) ? "volume-x" : "volume-2"} size={20} />
                     </button>
                 </div>
                 <button 
