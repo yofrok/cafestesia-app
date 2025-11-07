@@ -1,17 +1,34 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-// Fix: Imported RecipeStep from types.ts and separated RECIPES import.
-import { ProductionProcess, RecipeStep } from '../../types';
-import { RECIPES } from '../../constants';
+import { ProductionProcess, Recipe, RecipeStep } from '../../types';
 import { useProductionAlerts } from './useProductionAlerts';
 
 const PRODUCTION_STATE_KEY = 'productionState_v2';
 
+// Helper to apply variant overrides to base recipe steps
+const getStepsForVariant = (recipe: Recipe, variantId?: string): RecipeStep[] => {
+    if (!variantId || variantId === "base" || !recipe.variants) {
+        return recipe.steps;
+    }
+    const variant = recipe.variants.find(v => v.id === variantId);
+    if (!variant) {
+        return recipe.steps;
+    }
+    return recipe.steps.map((baseStep, index) => {
+        const override = variant.stepOverrides[index];
+        if (override) {
+            return { ...baseStep, ...override };
+        }
+        return baseStep;
+    });
+};
+
+
 const loadState = (): ProductionProcess[] => {
     try {
         const savedStateJSON = localStorage.getItem(PRODUCTION_STATE_KEY);
+        // We can't fully reconstruct the recipe here, so we will do it on app load
         if (savedStateJSON) {
-            const loadedProcesses: ProductionProcess[] = JSON.parse(savedStateJSON);
-            return loadedProcesses.map(p => ({...p, recipe: p.recipeId ? RECIPES[p.recipeId] : undefined }));
+            return JSON.parse(savedStateJSON);
         }
     } catch (error) {
         console.error("Error loading production state:", error);
@@ -22,7 +39,10 @@ const loadState = (): ProductionProcess[] => {
 const saveState = (state: ProductionProcess[]) => {
     try {
         // Don't save the full recipe object, just the ID, to keep localStorage light.
-        const stateToSave = state.map(({ recipe, ...rest }) => rest);
+        const stateToSave = state.map(({ recipe, ...rest }) => ({
+             ...rest,
+             recipeId: recipe?.id // Ensure recipeId is saved
+        }));
         localStorage.setItem(PRODUCTION_STATE_KEY, JSON.stringify(stateToSave));
     } catch (error) {
         console.error("Error saving production state:", error);
@@ -162,29 +182,35 @@ export const useProduction = () => {
     }, [isSuspended, playStart]);
 
 
-    const startBakingProcess = useCallback((recipeId: string) => {
-        const recipe = RECIPES[recipeId];
+    const startBakingProcess = useCallback((recipe: Recipe, variantId?: string) => {
         if (!recipe) return;
         
+        const processSteps = getStepsForVariant(recipe, variantId);
+        const totalDuration = processSteps.reduce((sum, step) => sum + step.duration, 0);
+        
+        const variant = recipe.variants?.find(v => v.id === variantId);
+        const processName = variant ? `${recipe.name} (${variant.name})` : recipe.name;
+
         const newProcess: ProductionProcess = {
             id: `baking-${Date.now()}`,
-            name: recipe.name,
-            recipeId,
-            recipe,
+            name: processName,
+            recipeId: recipe.id,
+            recipe: recipe, // Storing the full recipe object for display
+            variantId: variantId,
             type: 'baking',
             state: 'paused',
             currentStepIndex: 0,
-            steps: recipe.steps,
-            totalTime: recipe.totalDuration,
-            totalTimeLeft: recipe.totalDuration,
-            stepTimeLeft: recipe.steps[0].duration,
+            steps: processSteps,
+            totalTime: totalDuration,
+            totalTimeLeft: totalDuration,
+            stepTimeLeft: processSteps[0].duration,
             lastTickTimestamp: Date.now(),
         };
         setProcesses(prev => [...prev, newProcess]);
     }, []);
 
     const startHeatingProcess = useCallback((duration: number, name: string) => {
-        const heatingSteps: RecipeStep[] = [{ instruction: name, duration, isPauseStep: false }];
+        const heatingSteps: RecipeStep[] = [{ instruction: name, duration: duration }];
         const newProcess: ProductionProcess = {
              id: `heating-${Date.now()}`,
              name: name,

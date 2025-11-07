@@ -1,8 +1,9 @@
-// Fix: Defined RecipeStep interface here as it was not exported from constants.
+
+
+// The RecipeStep interface is now defined centrally here to avoid module resolution issues.
 export interface RecipeStep {
-    duration: number;
+    duration: number; // in seconds
     instruction: string;
-    isPauseStep?: boolean;
 }
 
 export enum Screen {
@@ -15,14 +16,30 @@ export enum Screen {
     Settings = 'settings',
 }
 
+export interface RecipeVariant {
+    id: string;
+    name: string;
+    description?: string;
+    // An array of step modifications. The index corresponds to the step in the base recipe.
+    // If a step isn't overridden, it uses the base recipe's values.
+    stepOverrides: Array<{
+        duration?: number;
+        instruction?: string;
+    } | null>; // null means no override for that step
+}
+
 export interface Recipe {
     id: string;
     name: string;
     pluralName: string;
     setupInstruction: string;
-    totalDuration: number;
+    baseVariantName: string;
+    baseVariantDescription?: string;
+    totalDuration: number; // This will now be calculated dynamically
     steps: RecipeStep[];
+    variants?: RecipeVariant[];
 }
+
 
 export type ProductionProcessState = 'paused' | 'running' | 'alarm' | 'finished' | 'intermission';
 
@@ -34,6 +51,7 @@ export interface ProductionProcess {
     type: 'baking' | 'heating';
     recipeId?: string;
     recipe?: Recipe;
+    variantId?: string; // To know which variant is being used
 
     state: ProductionProcessState;
     
@@ -65,7 +83,7 @@ export interface Subtask {
 }
 
 export interface KanbanTask {
-    id: string;
+    id:string;
     text: string;
     employee: string;
     shift: Shift;

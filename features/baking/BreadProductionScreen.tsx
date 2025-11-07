@@ -6,18 +6,21 @@ import ProcessCard from './ProcessCard';
 import { useRecipeLog } from '../../services/useRecipeLog';
 import { ProductionProcess } from '../../types';
 import FeedbackModal from './FeedbackModal';
+import { useRecipes } from '../../services/useRecipes';
 
 interface BreadProductionScreenProps {
     productionHook: ReturnType<typeof useProduction>;
     recipeLogHook: ReturnType<typeof useRecipeLog>;
+    recipesHook: ReturnType<typeof useRecipes>;
 }
 
-const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productionHook, recipeLogHook }) => {
+const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productionHook, recipeLogHook, recipesHook }) => {
     const [isSelectionModalOpen, setSelectionModalOpen] = useState(false);
     const [processForFeedback, setProcessForFeedback] = useState<ProductionProcess | null>(null);
 
     const { processes, startBakingProcess, startHeatingProcess, advanceProcess, togglePauseProcess, cancelProcess, isSoundMuted, toggleSoundMute, isAudioReady, isSuspended, unlockAudio } = productionHook;
     const { addFeedback } = recipeLogHook;
+    const { recipes } = recipesHook;
 
     const handleAcknowledgeFinish = (process: ProductionProcess) => {
         if (process.type === 'baking' && process.recipeId) {
@@ -119,6 +122,7 @@ const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productio
                 onClose={() => setSelectionModalOpen(false)}
                 onSelectRecipe={startBakingProcess}
                 onSelectHeating={startHeatingProcess}
+                recipes={recipes}
             />
             {processForFeedback && (
                 <FeedbackModal

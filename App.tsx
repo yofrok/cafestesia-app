@@ -10,6 +10,7 @@ import { useRecipeLog } from './services/useRecipeLog';
 import Icon from './components/Icon';
 import { useUsers } from './services/useUsers';
 import AudioUnlockBanner from './components/AudioUnlockBanner';
+import { useRecipes } from './services/useRecipes';
 
 // --- Code Splitting ---
 const BreadProductionScreen = lazy(() => import('./features/baking/BreadProductionScreen'));
@@ -46,6 +47,7 @@ const App: React.FC = () => {
     const categoriesHook = useCategories();
     const recipeLogHook = useRecipeLog();
     const usersHook = useUsers();
+    const recipesHook = useRecipes();
     
     const { processes, playNotification, isSuspended, unlockAudio } = productionHook;
     const { tasks } = kanbanHook;
@@ -101,14 +103,14 @@ const App: React.FC = () => {
 
     useEffect(() => {
         const currentCriticalIds = new Set(criticalAndUpcomingTasks.map(t => `task-${t.task.id}`));
-        currentCriticalIds.forEach(id => {
+        currentCriticalIds.forEach((id: string) => {
             if (!playedAlerts.current.has(id)) {
                 playNotification();
                 playedAlerts.current.add(id);
             }
         });
         // Clean up alerts for tasks that are no longer critical
-        playedAlerts.current.forEach(id => {
+        playedAlerts.current.forEach((id: string) => {
             if (id.startsWith('task-') && !currentCriticalIds.has(id)) {
                 playedAlerts.current.delete(id);
             }
@@ -132,7 +134,7 @@ const App: React.FC = () => {
     const renderScreen = () => {
         switch (activeScreen) {
             case Screen.Baking:
-                return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} />;
+                return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} recipesHook={recipesHook} />;
             case Screen.Operations:
                 return <OperationsScreen kanbanHook={kanbanHook} criticalTasks={criticalAndUpcomingTasks} users={usersHook.users} />;
             case Screen.Inventory:
@@ -147,9 +149,10 @@ const App: React.FC = () => {
                             categoriesHook={categoriesHook}
                             recipeLogHook={recipeLogHook}
                             usersHook={usersHook}
+                            recipesHook={recipesHook}
                        />;
             default:
-                return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} />;
+                return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} recipesHook={recipesHook} />;
         }
     };
 

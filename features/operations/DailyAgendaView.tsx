@@ -28,7 +28,7 @@ interface TaskLayout {
     zIndex: number;
 }
 
-// FIX: Define types for timeline items to resolve 'unknown' type errors.
+// Define types for timeline items to resolve 'unknown' type errors.
 interface BaseTimelineItem {
     startMinute: number;
     duration: number;

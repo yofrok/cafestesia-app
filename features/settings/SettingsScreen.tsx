@@ -6,22 +6,24 @@ import { useRecipeLog } from '../../services/useRecipeLog';
 import Icon from '../../components/Icon';
 import ProviderFormModal from './ProviderFormModal';
 import CategoryFormModal from './CategoryFormModal';
-import { RECIPES } from '../../constants';
 import RecipeLogModal from './RecipeLogModal';
 import { useUsers } from '../../services/useUsers';
 import UserFormModal from './UserFormModal';
+import { useRecipes } from '../../services/useRecipes';
+import RecipeFormModal from './recipes/RecipeFormModal';
 
 interface SettingsScreenProps {
     providersHook: ReturnType<typeof useProviders>;
     categoriesHook: ReturnType<typeof useCategories>;
     recipeLogHook: ReturnType<typeof useRecipeLog>;
     usersHook: ReturnType<typeof useUsers>;
+    recipesHook: ReturnType<typeof useRecipes>;
 }
 
 type SettingsTab = 'production' | 'inventory' | 'operations';
 
-const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categoriesHook, recipeLogHook, usersHook }) => {
-    const [activeTab, setActiveTab] = useState<SettingsTab>('operations');
+const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categoriesHook, recipeLogHook, usersHook, recipesHook }) => {
+    const [activeTab, setActiveTab] = useState<SettingsTab>('production');
 
     // Provider state
     const { providers, addProvider, updateProvider, deleteProvider } = providersHook;
@@ -35,12 +37,17 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
 
     // Recipe Log state
     const { feedbackLog } = recipeLogHook;
-    const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+    const [logRecipe, setLogRecipe] = useState<Recipe | null>(null);
 
     // User state
     const { users, addUser, updateUser, deleteUser } = usersHook;
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
+
+    // Recipe Management State
+    const { recipes, addRecipe, updateRecipe, deleteRecipe } = recipesHook;
+    const [isRecipeModalOpen, setIsRecipeModalOpen] = useState(false);
+    const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
 
 
     const handleEditProvider = (provider: Provider) => {
@@ -97,6 +104,24 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
         }
     };
 
+    const handleEditRecipe = (recipe: Recipe) => {
+        setEditingRecipe(recipe);
+        setIsRecipeModalOpen(true);
+    };
+
+    const handleAddNewRecipe = () => {
+        setEditingRecipe(null);
+        setIsRecipeModalOpen(true);
+    };
+
+    const handleRecipeSave = (recipeData: Omit<Recipe, 'id'>) => {
+        if (editingRecipe) {
+            updateRecipe({ ...recipeData, id: editingRecipe.id });
+        } else {
+            addRecipe(recipeData);
+        }
+    };
+
     const TabButton: React.FC<{ tab: SettingsTab, label: string, icon: 'cake-slice' | 'archive' | 'clipboard-kanban' }> = ({ tab, label, icon }) => (
         <button
             onClick={() => setActiveTab(tab)}
@@ -120,19 +145,33 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
 
                 <div className="mt-6">
                     {activeTab === 'production' && (
-                        <section>
-                            <h2 className="text-xl font-bold text-blue-700 mb-4">Bitácora de Recetas</h2>
+                         <section>
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-xl font-bold text-blue-700">Gestionar Recetas</h2>
+                                <button onClick={handleAddNewRecipe} className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                                    <Icon name="plus-circle" size={16} />
+                                    Añadir Receta
+                                </button>
+                            </div>
                             <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
                                 <ul className="divide-y divide-gray-200">
-                                    {Object.values(RECIPES).map(recipe => (
+                                    {recipes.map(recipe => (
                                         <li key={recipe.id} className="p-4 flex justify-between items-center">
                                             <span className="font-medium text-gray-800">{recipe.name}</span>
-                                            <button 
-                                                onClick={() => setSelectedRecipe(recipe)}
-                                                className="text-sm text-blue-600 hover:underline font-semibold"
-                                            >
-                                                Ver Historial
-                                            </button>
+                                            <div className="flex items-center gap-4">
+                                                <button 
+                                                    onClick={() => setLogRecipe(recipe)}
+                                                    className="text-sm text-gray-600 hover:underline font-semibold"
+                                                >
+                                                    Ver Historial
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleEditRecipe(recipe)}
+                                                    className="text-sm text-blue-600 hover:underline font-semibold"
+                                                >
+                                                    Editar
+                                                </button>
+                                            </div>
                                         </li>
                                     ))}
                                 </ul>
@@ -253,12 +292,19 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
                 onDelete={deleteUser}
                 user={editingUser}
             />
-            {selectedRecipe && (
+             <RecipeFormModal
+                isOpen={isRecipeModalOpen}
+                onClose={() => setIsRecipeModalOpen(false)}
+                onSave={handleRecipeSave}
+                onDelete={deleteRecipe}
+                recipe={editingRecipe}
+            />
+            {logRecipe && (
                 <RecipeLogModal
-                    isOpen={!!selectedRecipe}
-                    onClose={() => setSelectedRecipe(null)}
-                    recipe={selectedRecipe}
-                    feedbackLog={feedbackLog.filter(f => f.recipeId === selectedRecipe.id)}
+                    isOpen={!!logRecipe}
+                    onClose={() => setLogRecipe(null)}
+                    recipe={logRecipe}
+                    feedbackLog={feedbackLog.filter(f => f.recipeId === logRecipe.id)}
                 />
             )}
         </div>

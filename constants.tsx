@@ -1,49 +1,8 @@
-import { Recipe, KanbanTask, InventoryItem } from './types';
+import { KanbanTask, InventoryItem } from './types';
 
-export const RECIPES: Record<string, Recipe> = {
-    roles: {
-        id: 'roles',
-        name: 'Roles de Canela',
-        pluralName: 'Roles de Canela listos',
-        setupInstruction: 'Configura el horno a 230°C y programa 16 minutos.',
-        totalDuration: 14 * 60,
-        steps: [
-            { duration: 2 * 60, instruction: 'Coloca los roles en los niveles 1 y 3. Deja que el calor eleve el producto sin presionar INICIO.', isPauseStep: true },
-            { duration: 6 * 60, instruction: 'Baja la temperatura a 210°C y comienza el horneado.' },
-            { duration: 4 * 60, instruction: 'Gira las charolas 180 grados.' },
-            { duration: 2 * 60, instruction: 'Agrega 20 ml de leche y gira cada rol 1/3 de vuelta en sentido contrario del reloj.' },
-            { duration: 2 * 60, instruction: 'Vuelve a girar cada rol 1/3 de vuelta para finalizar.' }
-        ]
-    },
-    ciabattas: {
-        id: 'ciabattas',
-        name: 'Ciabattas',
-        pluralName: 'Ciabattas listas',
-        setupInstruction: 'Configura el horno a 230°C y programa 30 minutos.',
-        totalDuration: 28 * 60,
-        steps: [
-            { duration: 2 * 60, instruction: 'Coloca las charolas (niveles 1 y 3) y pulveriza agua 12 veces. Deja que el calor eleve el producto sin presionar INICIO.', isPauseStep: true },
-            { duration: 8 * 60, instruction: 'Baja la temperatura a 210°C y comienza el horneado.' },
-            { duration: 8 * 60, instruction: 'Gira las charolas 180 grados y vuelve a pulverizar agua 12 veces.' },
-            { duration: 6 * 60, instruction: 'Intercambia las charolas de nivel y da vuelta a cada pieza 180 grados.' },
-            { duration: 6 * 60, instruction: 'Gira las charolas 180 grados por última vez.' }
-        ]
-    },
-    croissants: {
-        id: 'croissants',
-        name: 'Croissants',
-        pluralName: 'Croissants listos',
-        setupInstruction: 'Configura el horno a 230°C y programa 21 minutos.',
-        totalDuration: 21 * 60,
-        steps: [
-            { duration: 3 * 60, instruction: 'Coloca las charolas en los niveles 1 y 3. Pulveriza agua 12 veces.' },
-            { duration: 6 * 60, instruction: 'Baja la temperatura a 200°C y continua horneando. (Nota: Si horneas solo 1 charola, baja a 180°C)' },
-            { duration: 5 * 60, instruction: 'Gira las charolas 180 grados.' },
-            { duration: 5 * 60, instruction: 'Intercambia las charolas de nivel y gíralas 180 grados.' },
-            { duration: 2 * 60, instruction: 'Gira las charolas 180 grados por última vez.' }
-        ]
-    }
-};
+// Recipes have been moved to Firestore and are now managed via useRecipes hook.
+// This constant is no longer used for production baking.
+export const RECIPES: Record<string, any> = {};
 
 const today = new Date();
 const todayStr = today.toISOString().split('T')[0];
