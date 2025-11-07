@@ -43,6 +43,7 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onToggleP
             case 'running': return 'border-green-500';
             case 'alarm': return 'border-red-500 animate-pulse-red';
             case 'finished': return 'border-blue-500';
+            case 'intermission': return 'border-yellow-500 animate-pulse-yellow';
             case 'paused': return 'border-gray-300';
             default: return 'border-gray-300';
         }
@@ -53,6 +54,7 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onToggleP
             case 'running': return 'bg-green-100 text-green-800';
             case 'alarm': return 'bg-red-100 text-red-800';
             case 'finished': return 'bg-blue-100 text-blue-800';
+            case 'intermission': return 'bg-yellow-100 text-yellow-800';
             case 'paused': return 'bg-gray-100 text-gray-800';
             default: return 'bg-gray-100';
         }
@@ -61,6 +63,7 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onToggleP
     const renderAction = () => {
         switch (state) {
             case 'paused':
+            case 'intermission':
                 return (
                     <button 
                         onClick={() => onTogglePause(process.id)} 
@@ -94,8 +97,8 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onToggleP
 
     return (
         <div className={`flex flex-col bg-white rounded-lg border-2 shadow-sm ${getBorderColor()}`}>
-            <header className={`p-3 rounded-t-md`}>
-                <h3 className={`font-bold text-lg ${getHeaderColor().split(' ')[1]}`}>{name}</h3>
+            <header className={`p-3 rounded-t-md ${getHeaderColor()}`}>
+                <h3 className={`font-bold text-lg`}>{name}</h3>
             </header>
             
             <div className="p-4 flex-grow flex flex-col justify-between">
@@ -110,7 +113,7 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onToggleP
                     </div>
                 </div>
 
-                <div className="steps-list mb-4 p-3 bg-gray-50 rounded-lg max-h-40 overflow-y-auto border border-gray-200">
+                <div className="steps-list mb-4 p-3 bg-gray-50 rounded-lg max-h-56 overflow-y-auto border border-gray-200">
                     {steps.map((step, index) => (
                         <StepItem 
                             key={index}

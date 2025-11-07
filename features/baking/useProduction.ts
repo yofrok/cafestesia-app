@@ -75,7 +75,10 @@ export const useProduction = () => {
                 // --- Precise 30-Second Warning Logic ---
                 const warningKey = `${p.id}-${p.currentStepIndex}`;
                 if (previousStepTimeLeft > 30 && newStepTimeLeft <= 30 && !playedWarningsRef.current.has(warningKey)) {
+                    // Play warning sound 3 times with a delay.
                     playWarning();
+                    setTimeout(() => playWarning(), 700);
+                    setTimeout(() => playWarning(), 1400);
                     playedWarningsRef.current.add(warningKey);
                 }
                 
@@ -212,7 +215,7 @@ export const useProduction = () => {
                 const nextStep = p.steps[nextStepIndex];
                 return {
                     ...p,
-                    state: 'paused' as const,
+                    state: 'intermission' as const,
                     currentStepIndex: nextStepIndex,
                     stepTimeLeft: nextStep.duration,
                     lastTickTimestamp: Date.now(),
@@ -241,22 +244,24 @@ export const useProduction = () => {
             return;
         }
 
-        // Handle starting a paused process
-        if (isSuspended) {
-            // If audio is suspended, queue the start and request unlock
-            pendingStartProcessId.current = processId;
-            unlockAudio();
-        } else {
-            // Audio is already running, proceed immediately
-            setProcesses(prev => prev.map(p => {
-                if (p.id !== processId) return p;
-                
-                const isFirstStart = p.state === 'paused' && p.totalTimeLeft === p.totalTime;
-                if (isFirstStart) {
-                    playStart();
-                }
-                return { ...p, state: 'running' as const, lastTickTimestamp: Date.now() };
-            }));
+        // Handle starting a paused or intermission process
+        if (processToToggle.state === 'paused' || processToToggle.state === 'intermission') {
+            if (isSuspended) {
+                // If audio is suspended, queue the start and request unlock
+                pendingStartProcessId.current = processId;
+                unlockAudio();
+            } else {
+                // Audio is already running, proceed immediately
+                setProcesses(prev => prev.map(p => {
+                    if (p.id !== processId) return p;
+                    
+                    const isFirstStart = p.state === 'paused' && p.totalTimeLeft === p.totalTime;
+                    if (isFirstStart) {
+                        playStart();
+                    }
+                    return { ...p, state: 'running' as const, lastTickTimestamp: Date.now() };
+                }));
+            }
         }
     }, [processes, isSuspended, unlockAudio, playStart]);
 

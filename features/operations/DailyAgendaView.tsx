@@ -28,6 +28,46 @@ interface TaskLayout {
     zIndex: number;
 }
 
+// FIX: Define types for timeline items to resolve 'unknown' type errors.
+interface BaseTimelineItem {
+    startMinute: number;
+    duration: number;
+}
+interface PositionedBaseTimelineItem extends BaseTimelineItem {
+    top: number;
+    height: number;
+}
+interface GapTimelineItem extends PositionedBaseTimelineItem {
+    type: 'gap';
+}
+interface ShortBreakTimelineItem extends PositionedBaseTimelineItem {
+    type: 'short_break';
+}
+interface EmptyTimelineItem extends PositionedBaseTimelineItem {
+    type: 'empty';
+}
+interface TaskTimelineItem extends PositionedBaseTimelineItem {
+    type: 'task';
+    task: KanbanTask;
+}
+type PositionedTimelineItem = GapTimelineItem | ShortBreakTimelineItem | EmptyTimelineItem | TaskTimelineItem;
+
+interface UnpositionedTaskTimelineItem extends BaseTimelineItem {
+    type: 'task';
+    task: KanbanTask;
+}
+interface UnpositionedGapTimelineItem extends BaseTimelineItem {
+    type: 'gap';
+}
+interface UnpositionedShortBreakTimelineItem extends BaseTimelineItem {
+    type: 'short_break';
+}
+interface UnpositionedEmptyTimelineItem extends BaseTimelineItem {
+    type: 'empty';
+}
+type UnpositionedTimelineItem = UnpositionedGapTimelineItem | UnpositionedShortBreakTimelineItem | UnpositionedEmptyTimelineItem | UnpositionedTaskTimelineItem;
+
+
 const formatGapDuration = (minutes: number) => {
     const h = Math.floor(minutes / 60);
     const m = Math.round(minutes % 60);
@@ -68,7 +108,7 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
     }, [tasks, taskForSubtasks]);
 
     const { timelineItems, totalHeight, getPositionForMinute } = useMemo(() => {
-        const items: any[] = [];
+        const items: UnpositionedTimelineItem[] = [];
         const sortedTasks = tasks
             .filter(t => t.time)
             .sort((a, b) => a.time!.localeCompare(b.time!));
@@ -103,7 +143,7 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
         }
 
         let currentY = 0;
-        const positionedItems = items.map(item => {
+        const positionedItems: PositionedTimelineItem[] = items.map(item => {
             const top = currentY;
             let height = 0;
             if (item.type === 'task') {
@@ -116,7 +156,7 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
                 height = item.duration * PIXELS_PER_MINUTE;
             }
             currentY += height;
-            return { ...item, top, height };
+            return { ...item, top, height } as PositionedTimelineItem;
         });
 
         const getPosition = (minute: number) => {
@@ -142,7 +182,7 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
     }, [tasks]);
     
     const taskLayouts = useMemo((): TaskLayout[] => {
-        const positionedTasks = timelineItems.filter(item => item.type === 'task');
+        const positionedTasks = timelineItems.filter((item): item is TaskTimelineItem => item.type === 'task');
         if (positionedTasks.length === 0) return [];
     
         const layouts: TaskLayout[] = [];
@@ -157,7 +197,7 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
             }
     
             // 1. Build the full, transitive collision group based on ACTUAL TIME overlap
-            const collisionGroup: (typeof positionedTasks[0])[] = [];
+            const collisionGroup: TaskTimelineItem[] = [];
             const queue = [taskItem];
             const visitedInGroup = new Set<string>([taskItem.task.id]);
     
@@ -189,7 +229,7 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
             // 2. Assign columns based on ACTUAL time overlap within the group
             collisionGroup.sort((a, b) => a.startMinute - b.startMinute);
             
-            const columns: (typeof collisionGroup)[] = [];
+            const columns: TaskTimelineItem[][] = [];
             for (const event of collisionGroup) {
                 let placed = false;
                 for (const col of columns) {
@@ -328,7 +368,7 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
                
                 <div className="absolute top-0 bottom-0 left-16 right-0">
                     {/* Compressed Gap markers */}
-                    {timelineItems.filter(item => item.type === 'gap').map(item => (
+                    {timelineItems.filter((item): item is GapTimelineItem => item.type === 'gap').map(item => (
                          <div key={`gap-${item.startMinute}`} className="absolute w-full flex items-center" style={{ top: `${item.top}px`, height: `${item.height}px` }}>
                             <div className="w-full border-t-2 border-dashed border-gray-300 relative">
                                 <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-50 px-2 text-xs font-semibold text-gray-500">
@@ -338,7 +378,7 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
                         </div>
                     ))}
                     {/* Short Break Indicators */}
-                    {timelineItems.filter(item => item.type === 'short_break').map(item => (
+                    {timelineItems.filter((item): item is ShortBreakTimelineItem => item.type === 'short_break').map(item => (
                         <div key={`break-${item.startMinute}`} className="absolute w-full flex items-center" style={{ top: `${item.top}px`, height: `${item.height}px` }}>
                             <div className="w-full flex items-center justify-center gap-2 text-gray-400">
                                 <div className="flex-grow border-t border-dashed border-gray-300"></div>

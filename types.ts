@@ -24,7 +24,7 @@ export interface Recipe {
     steps: RecipeStep[];
 }
 
-export type ProductionProcessState = 'paused' | 'running' | 'alarm' | 'finished';
+export type ProductionProcessState = 'paused' | 'running' | 'alarm' | 'finished' | 'intermission';
 
 export interface ProductionProcess {
     id: string;

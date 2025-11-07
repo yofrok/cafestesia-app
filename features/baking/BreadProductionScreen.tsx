@@ -74,7 +74,7 @@ const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productio
 
             <div className="flex-grow overflow-y-auto">
                 {activeProcesses.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {activeProcesses.map(process => (
                             <ProcessCard 
                                 key={process.id} 
@@ -97,7 +97,7 @@ const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productio
                 {finishedProcesses.length > 0 && (
                     <div className="mt-8">
                         <h3 className="text-lg font-bold text-gray-600">Finalizados Recientemente</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                             {finishedProcesses.map(process => (
                                 <ProcessCard 
                                     key={process.id} 
