@@ -12,12 +12,24 @@ interface SidebarProps {
     isOpen: boolean;
     onClose: () => void;
     users: User[];
+    onNavigateToTask: (task: KanbanTask) => void;
+    setOperationsDate: (date: Date) => void;
+    setHighlightedTaskId: (id: string | null) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeScreen, setActiveScreen, processes, urgentTasks, shoppingListItems, inProgressTasks, isOpen, onClose, users }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeScreen, setActiveScreen, processes, urgentTasks, shoppingListItems, inProgressTasks, isOpen, onClose, users, onNavigateToTask, setOperationsDate, setHighlightedTaskId }) => {
 
     const handleNavClick = (screen: Screen) => {
+        if (screen === Screen.Operations) {
+            setOperationsDate(new Date());
+            setHighlightedTaskId(null);
+        }
         setActiveScreen(screen);
+        onClose();
+    };
+
+    const handleInProgressTaskClick = (task: KanbanTask) => {
+        onNavigateToTask(task);
         onClose();
     };
 
@@ -83,12 +95,27 @@ const Sidebar: React.FC<SidebarProps> = ({ activeScreen, setActiveScreen, proces
                 })}
 
                 {inProgressTasks.length > 0 && (
-                    <AlertWidget title="Tareas en Progreso" onClick={() => handleNavClick(Screen.Operations)}>
-                        <div className="flex items-center gap-3 font-bold text-sm text-gray-800">
-                            <Icon name="play-circle" className="text-yellow-600" size={20} />
-                            <span>{inProgressTasks.length} tarea{inProgressTasks.length > 1 ? 's' : ''} activa{inProgressTasks.length > 1 ? 's' : ''}</span>
+                    <div className="mb-4">
+                        <h3 className="text-xs uppercase font-bold mb-2 px-2 text-blue-600">Tareas en Progreso</h3>
+                        <div className="space-y-1">
+                            {inProgressTasks.slice(0, 3).map(task => (
+                                <button
+                                    key={task.id}
+                                    onClick={() => handleInProgressTaskClick(task)}
+                                    className="w-full text-left p-2 rounded-lg transition-colors border-2 bg-yellow-50 animate-pulse-yellow hover:bg-yellow-100"
+                                    title={`Ver tarea: ${task.text}`}
+                                >
+                                    <div className="flex items-center gap-2 text-sm text-gray-800">
+                                        <Icon name="play-circle" className="text-yellow-600 flex-shrink-0 animate-pulse" size={18} />
+                                        <div className="flex-grow min-w-0">
+                                            <p className="font-bold truncate">{task.text}</p>
+                                            <p className="text-xs font-normal text-gray-600">{task.employee} - {task.date}</p>
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
                         </div>
-                    </AlertWidget>
+                    </div>
                 )}
 
 

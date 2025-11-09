@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { KanbanTask, TaskStatus, User } from '../../types';
 import { TIMELINE_START_HOUR, TIMELINE_END_HOUR } from '../../constants';
 import AgendaTaskCard from './AgendaTaskCard';
@@ -11,6 +11,8 @@ interface DailyAgendaViewProps {
     onUpdateTask: (updatedTask: KanbanTask) => void;
     onReorderTasks: (draggedTaskId: string, targetTaskId: string) => void;
     users: User[];
+    highlightedTaskId: string | null;
+    setHighlightedTaskId: (id: string | null) => void;
 }
 
 const PIXELS_PER_MINUTE = 2.5;
@@ -81,12 +83,12 @@ const timeToMinutes = (time: string) => {
 };
 
 
-const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus, onEditTask, onUpdateTask, onReorderTasks, users }) => {
+const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus, onEditTask, onUpdateTask, onReorderTasks, users, highlightedTaskId, setHighlightedTaskId }) => {
     const [now, setNow] = useState(new Date());
     const [taskForSubtasks, setTaskForSubtasks] = useState<KanbanTask | null>(null);
     const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
     const [dropTargetId, setDropTargetId] = useState<string | null>(null);
-
+    const taskCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
     const userColorMap = useMemo(() => {
         return users.reduce((acc, user) => {
@@ -110,6 +112,20 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
             }
         }
     }, [tasks, taskForSubtasks]);
+
+     useEffect(() => {
+        if (highlightedTaskId && taskCardRefs.current[highlightedTaskId]) {
+            const element = taskCardRefs.current[highlightedTaskId];
+            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // Set a timeout to remove the highlight after the animation
+            const timer = setTimeout(() => {
+                setHighlightedTaskId(null);
+            }, 2500); // Animation is 2s, so 2.5s is safe
+
+            return () => clearTimeout(timer);
+        }
+    }, [highlightedTaskId, setHighlightedTaskId]);
 
     const { timelineItems, totalHeight, getPositionForMinute } = useMemo(() => {
         const items: UnpositionedTimelineItem[] = [];
@@ -463,6 +479,10 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
                     {/* Task Cards */}
                    {taskLayouts.map(({ task, top, height, left, width, zIndex }) => (
                        <AgendaTaskCard 
+                            // FIX: The ref callback for a forwardRef component should not return a value.
+                            // The assignment expression `(a = b)` returns `b`, which violates the `(instance) => void` type.
+                            // Wrapping the assignment in curly braces `{}` makes the function implicitly return `undefined`.
+                           ref={el => { taskCardRefs.current[task.id] = el; }}
                            key={task.id}
                            task={task}
                            onUpdateStatus={onUpdateStatus}
@@ -486,6 +506,7 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
                            onTouchEnd={handleTouchEnd}
                            isBeingDragged={task.id === draggedTaskId}
                            isDropTarget={task.id === dropTargetId}
+                           isHighlighted={task.id === highlightedTaskId}
                        />
                    ))}
                 </div>

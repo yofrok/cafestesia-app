@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
-import { Screen } from './types';
+import { Screen, KanbanTask } from './types';
 import Sidebar from './components/Sidebar';
 import { useKanban } from './services/useKanban';
 import { useInventory } from './services/useInventory';
@@ -38,6 +39,8 @@ const LoadingFallback = () => (
 const App: React.FC = () => {
     const [activeScreen, setActiveScreen] = useState<Screen>(Screen.Baking);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+    const [operationsDate, setOperationsDate] = useState(new Date());
+    const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
 
     // Centralized Hooks
     const productionHook = useProduction();
@@ -117,106 +120,107 @@ const App: React.FC = () => {
         });
     }, [criticalAndUpcomingTasks, playNotification]);
 
-
-    const sidebarCriticalTasks = useMemo(() => {
-        return criticalAndUpcomingTasks.slice(0, 3);
-    }, [criticalAndUpcomingTasks]);
-
-    const inProgressTasks = useMemo(() => {
-        return tasks.filter(t => t.status === 'inprogress');
-    }, [tasks]);
-
+    const handleNavigateToTask = (task: KanbanTask) => {
+        if (task.date) {
+            const taskDate = new Date(task.date);
+            // Adjust for timezone offset to prevent showing the previous day
+            taskDate.setMinutes(taskDate.getMinutes() + taskDate.getTimezoneOffset());
+            setOperationsDate(taskDate);
+            setHighlightedTaskId(task.id);
+        }
+        setActiveScreen(Screen.Operations);
+    };
 
     const shoppingListItems = useMemo(() => {
         return items.filter(item => item.currentStock <= item.minStock);
     }, [items]);
 
+    const inProgressTasks = useMemo(() => {
+        return tasks.filter(t => t.status === 'inprogress');
+    }, [tasks]);
+    
     const renderScreen = () => {
-        switch (activeScreen) {
+        switch(activeScreen) {
             case Screen.Baking:
                 return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} recipesHook={recipesHook} />;
             case Screen.Operations:
-                return <OperationsScreen kanbanHook={kanbanHook} criticalTasks={criticalAndUpcomingTasks} users={usersHook.users} />;
+                return <OperationsScreen 
+                            kanbanHook={kanbanHook} 
+                            criticalTasks={criticalAndUpcomingTasks} 
+                            users={usersHook.users} 
+                            selectedDate={operationsDate} 
+                            setSelectedDate={setOperationsDate}
+                            highlightedTaskId={highlightedTaskId}
+                            setHighlightedTaskId={setHighlightedTaskId}
+                        />;
             case Screen.Inventory:
-                return <InventoryScreen 
-                            inventoryHook={inventoryHook} 
-                            providers={providersHook.providers}
-                            categories={categoriesHook.categories} 
-                       />;
+                return <InventoryScreen inventoryHook={inventoryHook} providers={providersHook.providers} categories={categoriesHook.categories} />;
             case Screen.Settings:
-                return <SettingsScreen 
-                            providersHook={providersHook}
-                            categoriesHook={categoriesHook}
-                            recipeLogHook={recipeLogHook}
-                            usersHook={usersHook}
-                            recipesHook={recipesHook}
-                       />;
+                return <SettingsScreen providersHook={providersHook} categoriesHook={categoriesHook} recipeLogHook={recipeLogHook} usersHook={usersHook} recipesHook={recipesHook}/>;
             default:
                 return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} recipesHook={recipesHook} />;
         }
     };
 
-    const getTitle = () => {
-        switch (activeScreen) {
-            case Screen.Baking:
-                return 'Producción de Pan';
-            case Screen.Operations:
-                return 'Operaciones';
-            case Screen.Inventory:
-                return 'Inventario';
-            case Screen.Settings:
-                return 'Configuración';
-            default:
-                return 'Cafestesia';
-        }
-    };
-    
     return (
-        <div className="w-full min-h-screen md:p-4 flex items-center justify-center bg-gray-100 text-gray-800">
-            <div className="app-container w-full h-screen max-w-5xl bg-white md:rounded-xl shadow-lg overflow-hidden relative border border-gray-200">
-                
-                {isMobileSidebarOpen && (
-                    <div
-                        className="md:hidden fixed inset-0 bg-black/60 z-40"
-                        onClick={() => setIsMobileSidebarOpen(false)}
-                        aria-hidden="true"
-                    ></div>
-                )}
-                
-                <div className="grid md:grid-cols-[240px_1fr] h-full">
-                    <Sidebar 
-                        activeScreen={activeScreen} 
+        <div className="h-screen w-screen bg-gray-100">
+            <div className="flex h-full w-full max-w-7xl mx-auto bg-gray-50 text-gray-800">
+                <div className="hidden md:flex md:flex-shrink-0">
+                    <Sidebar
+                        activeScreen={activeScreen}
                         setActiveScreen={setActiveScreen}
-                        processes={processes}
-                        urgentTasks={sidebarCriticalTasks}
+                        processes={processes.filter(p => p.state !== 'finished')}
+                        urgentTasks={criticalAndUpcomingTasks}
+                        shoppingListItems={shoppingListItems}
+                        inProgressTasks={inProgressTasks}
+                        isOpen={true} // Always open on desktop
+                        onClose={() => {}} // No-op on desktop
+                        users={usersHook.users}
+                        onNavigateToTask={handleNavigateToTask}
+                        setOperationsDate={setOperationsDate}
+                        setHighlightedTaskId={setHighlightedTaskId}
+                    />
+                </div>
+
+                <div className="md:hidden">
+                     {isMobileSidebarOpen && (
+                        <div 
+                            className="fixed inset-0 bg-black/50 z-40" 
+                            onClick={() => setIsMobileSidebarOpen(false)}
+                            aria-hidden="true" 
+                        />
+                    )}
+                    <Sidebar
+                        activeScreen={activeScreen}
+                        setActiveScreen={setActiveScreen}
+                        processes={processes.filter(p => p.state !== 'finished')}
+                        urgentTasks={criticalAndUpcomingTasks}
                         shoppingListItems={shoppingListItems}
                         inProgressTasks={inProgressTasks}
                         isOpen={isMobileSidebarOpen}
                         onClose={() => setIsMobileSidebarOpen(false)}
                         users={usersHook.users}
+                        onNavigateToTask={handleNavigateToTask}
+                        setOperationsDate={setOperationsDate}
+                        setHighlightedTaskId={setHighlightedTaskId}
                     />
-
-                    <main className="main-content flex flex-col overflow-y-auto h-full">
-                         <header className="main-content-header p-4 md:p-6 border-b border-gray-200 flex justify-between items-center flex-shrink-0">
-                            <button className="md:hidden p-2 -ml-2 text-gray-600 hover:text-blue-600" onClick={() => setIsMobileSidebarOpen(true)}>
-                                <Icon name="menu" size={24} />
-                            </button>
-                            <h2 className="text-xl md:text-3xl font-bold text-blue-600">{getTitle()}</h2>
-                            <div className="md:hidden w-8"></div> {/* Spacer to center title on mobile */}
-                        </header>
-                        <div className="flex-grow relative">
-                            <div className="absolute inset-0 overflow-y-auto relative">
-                               <Suspense fallback={<LoadingFallback />}>
-                                   {renderScreen()}
-                               </Suspense>
-                            </div>
-                        </div>
-                    </main>
                 </div>
                 
-                {isSuspended && <AudioUnlockBanner onUnlock={unlockAudio} />}
-
+                <main className="flex-1 flex flex-col relative overflow-hidden">
+                    <header className="md:hidden bg-white border-b border-gray-200 p-4 flex justify-start items-center gap-4">
+                        <button onClick={() => setIsMobileSidebarOpen(true)}>
+                            <Icon name="menu" size={24} />
+                        </button>
+                        <h1 className="text-xl font-bold text-blue-600">Cafestesia</h1>
+                    </header>
+                    <div className="flex-1 overflow-y-auto">
+                        <Suspense fallback={<LoadingFallback />}>
+                            {renderScreen()}
+                        </Suspense>
+                    </div>
+                </main>
             </div>
+            {isSuspended && <AudioUnlockBanner onUnlock={unlockAudio} />}
         </div>
     );
 };

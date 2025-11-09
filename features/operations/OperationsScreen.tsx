@@ -15,14 +15,17 @@ interface OperationsScreenProps {
     kanbanHook: ReturnType<typeof useKanban>;
     criticalTasks: { task: KanbanTask; diff: number }[];
     users: User[];
+    selectedDate: Date;
+    setSelectedDate: (date: Date) => void;
+    highlightedTaskId: string | null;
+    setHighlightedTaskId: (id: string | null) => void;
 }
 
 export type EditMode = 'new' | 'single' | 'future';
 type OperationsView = 'agenda' | 'pending';
 
-const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, criticalTasks, users }) => {
+const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, criticalTasks, users, selectedDate, setSelectedDate, highlightedTaskId, setHighlightedTaskId }) => {
     const { tasks, addTask, addMultipleTasks, updateTask, updateTaskStatus, deleteTask, updateFutureTasks, deleteFutureTasks, reorderDailyTasks } = kanbanHook;
-    const [selectedDate, setSelectedDate] = useState(new Date());
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<KanbanTask | null>(null);
     const [employeeFilter, setEmployeeFilter] = useState<string>('All');
@@ -259,14 +262,15 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
         return filteredTasks.filter(task => !task.date);
     }, [filteredTasks]);
     
-    const TabButton: React.FC<{ view: OperationsView, label: string, icon: 'calendar' | 'clipboard-list', count: number }> = ({ view, label, icon, count }) => (
+    const TabButton: React.FC<{ view: OperationsView, label: string, mobileLabel: string, icon: 'calendar' | 'clipboard-list', count: number }> = ({ view, label, mobileLabel, icon, count }) => (
         <button
             onClick={() => setActiveView(view)}
-            className={`flex items-center gap-2 py-2 px-4 text-sm md:text-base font-bold border-b-4 transition-colors ${activeView === view ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+            className={`flex items-center gap-2 py-2 px-3 md:px-4 text-sm font-bold border-b-4 transition-colors ${activeView === view ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
         >
             <Icon name={icon} size={18} />
-            {label}
-            {count > 0 && <span className="text-xs bg-gray-300 text-gray-700 font-bold rounded-full px-2">{count}</span>}
+            <span className="hidden md:inline">{label}</span>
+            <span className="md:hidden">{mobileLabel}</span>
+            {count > 0 && <span className="ml-1 text-xs bg-gray-300 text-gray-700 font-bold rounded-full px-2">{count}</span>}
         </button>
     );
 
@@ -275,16 +279,18 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
             {criticalTasks.length > 0 && <CriticalTasksBar tasksWithDiff={criticalTasks} />}
 
             <div className="operations-header flex flex-col p-4 border-b border-gray-200 gap-4 flex-shrink-0">
-                <div className="flex justify-between items-center w-full gap-4">
-                     <div className="flex">
-                        <TabButton view="agenda" label="Agenda Diaria" icon="calendar" count={0} />
-                        <TabButton view="pending" label="Tareas Pendientes" icon="clipboard-list" count={pendingTasks.length} />
+                <div className="flex justify-between items-center w-full">
+                    <div className="flex">
+                        <TabButton view="agenda" label="Agenda Diaria" mobileLabel="Agenda" icon="calendar" count={0} />
+                        <TabButton view="pending" label="Tareas Pendientes" mobileLabel="Pendientes" icon="clipboard-list" count={pendingTasks.length} />
                     </div>
-                     <div className="flex-shrink-0">
-                        <button onClick={() => { setEditMode('new'); setEditingTask(null); setIsModalOpen(true); }} className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors text-sm">
-                            <Icon name="plus-circle" size={16} />
-                            <span className="hidden md:inline">Añadir Tarea</span>
-                            <span className="md:hidden">Añadir</span>
+                    <div className="flex-shrink-0">
+                        <button 
+                            onClick={() => { setEditMode('new'); setEditingTask(null); setIsModalOpen(true); }} 
+                            className="flex items-center justify-center bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-sm w-10 h-10 md:w-auto md:h-auto md:py-2 md:px-3"
+                        >
+                            <Icon name="plus-circle" size={20} />
+                            <span className="hidden md:inline ml-2">Añadir Tarea</span>
                         </button>
                     </div>
                 </div>
@@ -294,12 +300,13 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
                         setSelectedDate={setSelectedDate} 
                         tasks={tasks}
                         users={users}
+                        employeeFilter={employeeFilter}
                     />
                 )}
                 <div className="flex items-center gap-2 bg-gray-200 rounded-lg p-1 w-full overflow-x-auto">
                     <button 
                         onClick={() => setEmployeeFilter('All')}
-                        className={`px-3 py-1 text-sm font-bold rounded-md transition-colors ${employeeFilter === 'All' ? 'bg-white shadow-sm' : 'bg-transparent text-gray-600'}`}
+                        className={`px-3 py-1 text-sm font-bold rounded-md transition-colors whitespace-nowrap ${employeeFilter === 'All' ? 'bg-white shadow-sm' : 'bg-transparent text-gray-600'}`}
                     >
                         Todos
                     </button>
@@ -307,7 +314,7 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
                          <button 
                             key={user.id}
                             onClick={() => setEmployeeFilter(user.name)}
-                            className={`px-3 py-1 text-sm font-bold rounded-md transition-colors ${employeeFilter === user.name ? 'bg-white shadow-sm' : 'bg-transparent text-gray-600'}`}
+                            className={`px-3 py-1 text-sm font-bold rounded-md transition-colors whitespace-nowrap ${employeeFilter === user.name ? 'bg-white shadow-sm' : 'bg-transparent text-gray-600'}`}
                         >
                             {user.name}
                         </button>
@@ -324,6 +331,8 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
                         onUpdateTask={updateTask}
                         onReorderTasks={reorderDailyTasks}
                         users={users}
+                        highlightedTaskId={highlightedTaskId}
+                        setHighlightedTaskId={setHighlightedTaskId}
                     />
                 ) : (
                     <PendingTasksList

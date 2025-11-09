@@ -19,6 +19,7 @@ interface AgendaTaskCardProps {
     onTouchEnd: () => void;
     isBeingDragged: boolean;
     isDropTarget: boolean;
+    isHighlighted: boolean;
 }
 
 const getStatusStyles = (status: TaskStatus) => {
@@ -33,7 +34,7 @@ const getStatusStyles = (status: TaskStatus) => {
     }
 };
 
-const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, onEdit, onViewSubtasks, style, userColor, onDragStart, onDragOver, onDrop, onDragEnd, onDragLeave, onTouchStart, onTouchMove, onTouchEnd, isBeingDragged, isDropTarget }) => {
+const AgendaTaskCard = React.forwardRef<HTMLDivElement, AgendaTaskCardProps>(({ task, onUpdateStatus, onEdit, onViewSubtasks, style, userColor, onDragStart, onDragOver, onDrop, onDragEnd, onDragLeave, onTouchStart, onTouchMove, onTouchEnd, isBeingDragged, isDropTarget, isHighlighted }, ref) => {
     const statusStyles = getStatusStyles(task.status);
     
     const handleStatusChange = (e: React.MouseEvent) => {
@@ -70,10 +71,12 @@ const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, o
         ${statusStyles}
         ${isBeingDragged ? 'opacity-40 scale-105' : ''}
         ${isDropTarget ? 'drop-target-indicator' : ''}
+        ${isHighlighted ? 'animate-highlight' : ''}
     `;
 
     return (
         <div
+            ref={ref}
             style={cardStyle}
             draggable
             data-task-id={task.id}
@@ -137,6 +140,6 @@ const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, o
             </div>
         </div>
     );
-};
+});
 
 export default AgendaTaskCard;

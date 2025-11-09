@@ -7,9 +7,10 @@ interface WeekdaySelectorProps {
     setSelectedDate: (date: Date) => void;
     tasks: KanbanTask[];
     users: User[];
+    employeeFilter: string;
 }
 
-const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({ selectedDate, setSelectedDate, tasks, users }) => {
+const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({ selectedDate, setSelectedDate, tasks, users, employeeFilter }) => {
     const [displayDate, setDisplayDate] = useState(selectedDate);
     const [animationClass, setAnimationClass] = useState('');
     const touchStartX = useRef(0);
@@ -23,7 +24,12 @@ const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({ selectedDate, setSele
     
     const tasksByDay = useMemo(() => {
         const map = new Map<string, string[]>(); // Key: "YYYY-MM-DD", Value: array of unique employee names
-        tasks.forEach(task => {
+        
+        const relevantTasks = employeeFilter === 'All'
+            ? tasks
+            : tasks.filter(task => task.employee === employeeFilter);
+
+        relevantTasks.forEach(task => {
             if (task.date) {
                 const dateStr = task.date;
                 if (!map.has(dateStr)) {
@@ -32,12 +38,13 @@ const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({ selectedDate, setSele
                 map.get(dateStr)!.push(task.employee);
             }
         });
+        
         // Make employees unique for each day
         for (const [dateStr, employees] of map.entries()) {
             map.set(dateStr, Array.from(new Set(employees)));
         }
         return map;
-    }, [tasks]);
+    }, [tasks, employeeFilter]);
 
     // This is key for the calendar picker to work. When a date is picked,
     // it updates the parent's `selectedDate`, and this effect snaps our
@@ -129,6 +136,7 @@ const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({ selectedDate, setSele
     };
 
     const monthName = displayDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    const showTodayButton = !isSameDay(selectedDate, today);
 
     return (
         <div className="w-full">
@@ -137,6 +145,15 @@ const WeekdaySelector: React.FC<WeekdaySelectorProps> = ({ selectedDate, setSele
                     <Icon name="chevron-left" size={20} />
                 </button>
                 <div className="flex items-center gap-2">
+                     {showTodayButton && (
+                         <button 
+                            onClick={() => setSelectedDate(new Date())}
+                            className="text-xs font-bold text-blue-600 bg-blue-100 hover:bg-blue-200 px-3 py-1 rounded-full transition-colors"
+                            title="Volver al día de hoy"
+                        >
+                            Hoy
+                        </button>
+                    )}
                     <h4 className="font-bold text-gray-700 capitalize text-sm">{monthName}</h4>
                     <div 
                         className="relative w-9 h-9 flex items-center justify-center text-gray-500 hover:text-blue-600 rounded-full hover:bg-gray-100 transition-colors cursor-pointer" 
