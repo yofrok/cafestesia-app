@@ -21,7 +21,7 @@ export type EditMode = 'new' | 'single' | 'future';
 type OperationsView = 'agenda' | 'pending';
 
 const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, criticalTasks, users }) => {
-    const { tasks, addTask, addMultipleTasks, updateTask, updateTaskStatus, deleteTask, updateFutureTasks, deleteFutureTasks } = kanbanHook;
+    const { tasks, addTask, addMultipleTasks, updateTask, updateTaskStatus, deleteTask, updateFutureTasks, deleteFutureTasks, reorderDailyTasks } = kanbanHook;
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<KanbanTask | null>(null);
@@ -322,6 +322,7 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
                         onEditTask={handleEdit} 
                         onUpdateStatus={updateTaskStatus}
                         onUpdateTask={updateTask}
+                        onReorderTasks={reorderDailyTasks}
                         users={users}
                     />
                 ) : (

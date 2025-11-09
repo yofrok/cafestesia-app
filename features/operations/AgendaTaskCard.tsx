@@ -9,6 +9,13 @@ interface AgendaTaskCardProps {
     onViewSubtasks: () => void;
     style: React.CSSProperties;
     userColor: string;
+    onDragStart: (taskId: string) => void;
+    onDragOver: (e: React.DragEvent, taskId: string) => void;
+    onDrop: (targetTaskId: string) => void;
+    onDragEnd: () => void;
+    onDragLeave: () => void;
+    isBeingDragged: boolean;
+    isDropTarget: boolean;
 }
 
 const getStatusStyles = (status: TaskStatus) => {
@@ -23,7 +30,7 @@ const getStatusStyles = (status: TaskStatus) => {
     }
 };
 
-const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, onEdit, onViewSubtasks, style, userColor }) => {
+const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, onEdit, onViewSubtasks, style, userColor, onDragStart, onDragOver, onDrop, onDragEnd, onDragLeave, isBeingDragged, isDropTarget }) => {
     const statusStyles = getStatusStyles(task.status);
     
     const handleStatusChange = (e: React.MouseEvent) => {
@@ -55,11 +62,24 @@ const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, o
         color: '#374151' // neutral text-gray-700 for readability
     };
 
+    const combinedClasses = `
+        absolute rounded-lg p-2 flex gap-2 transition-all duration-300 cursor-grab
+        ${statusStyles}
+        ${isBeingDragged ? 'opacity-40' : ''}
+        ${isDropTarget ? 'drop-target-indicator' : ''}
+    `;
+
     return (
         <div
             style={cardStyle}
+            draggable
+            onDragStart={() => onDragStart(task.id)}
+            onDragOver={(e) => onDragOver(e, task.id)}
+            onDrop={() => onDrop(task.id)}
+            onDragEnd={onDragEnd}
+            onDragLeave={onDragLeave}
             onClick={onViewSubtasks}
-            className={`absolute rounded-lg p-2 flex gap-2 transition-all duration-300 cursor-pointer ${statusStyles}`}
+            className={combinedClasses}
         >
             <div className="flex-shrink-0 w-1 h-full rounded-full" style={{ backgroundColor: userColor }}></div>
             <div className="flex-grow flex flex-col min-w-0 min-h-0">

@@ -145,6 +145,29 @@ export const useKanban = () => {
         }
     };
 
+    const reorderDailyTasks = async (draggedTaskId: string, targetTaskId: string) => {
+        const draggedTask = tasks.find(t => t.id === draggedTaskId);
+        const targetTask = tasks.find(t => t.id === targetTaskId);
 
-    return { tasks, updateTaskStatus, addTask, addMultipleTasks, updateTask, deleteTask, updateFutureTasks, deleteFutureTasks };
+        if (!draggedTask || !targetTask || !draggedTask.time || !targetTask.time || draggedTask.date !== targetTask.date) {
+            console.error("Cannot reorder tasks: invalid tasks or different dates.");
+            return;
+        }
+
+        const draggedTaskRef = firestore.doc(db, 'tasks', draggedTaskId);
+        const targetTaskRef = firestore.doc(db, 'tasks', targetTaskId);
+
+        try {
+            const batch = firestore.writeBatch(db);
+            // Swap times
+            batch.update(draggedTaskRef, { time: targetTask.time });
+            batch.update(targetTaskRef, { time: draggedTask.time });
+            await batch.commit();
+        } catch (error) {
+            console.error("Error reordering tasks:", error);
+        }
+    };
+
+
+    return { tasks, updateTaskStatus, addTask, addMultipleTasks, updateTask, deleteTask, updateFutureTasks, deleteFutureTasks, reorderDailyTasks };
 };

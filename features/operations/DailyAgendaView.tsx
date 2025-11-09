@@ -9,6 +9,7 @@ interface DailyAgendaViewProps {
     onUpdateStatus: (taskId: string, newStatus: TaskStatus) => void;
     onEditTask: (task: KanbanTask) => void;
     onUpdateTask: (updatedTask: KanbanTask) => void;
+    onReorderTasks: (draggedTaskId: string, targetTaskId: string) => void;
     users: User[];
 }
 
@@ -80,9 +81,12 @@ const timeToMinutes = (time: string) => {
 };
 
 
-const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus, onEditTask, onUpdateTask, users }) => {
+const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus, onEditTask, onUpdateTask, onReorderTasks, users }) => {
     const [now, setNow] = useState(new Date());
     const [taskForSubtasks, setTaskForSubtasks] = useState<KanbanTask | null>(null);
+    const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+    const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+
 
     const userColorMap = useMemo(() => {
         return users.reduce((acc, user) => {
@@ -268,7 +272,9 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
 
     const timelineMarkers = useMemo(() => {
         const markers = new Map<number, string>();
-        const taskLayoutMap = new Map(taskLayouts.map(l => [l.task.id, l]));
+        // FIX: Explicitly type the Map to prevent TypeScript from inferring 'unknown' for its values.
+        // This resolves the error "Property 'left' does not exist on type 'unknown'".
+        const taskLayoutMap = new Map<string, TaskLayout>(taskLayouts.map(l => [l.task.id, l]));
     
         const hoursToShow = new Set<number>();
         if (timelineItems.length === 0) {
@@ -341,6 +347,35 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     const currentTimePosition = getPositionForMinute(nowMinutes);
     
+    // --- Drag and Drop Handlers ---
+    const handleDragStart = (taskId: string) => {
+        setDraggedTaskId(taskId);
+    };
+
+    const handleDragOver = (e: React.DragEvent, taskId: string) => {
+        e.preventDefault();
+        if (taskId !== draggedTaskId) {
+            setDropTargetId(taskId);
+        }
+    };
+
+    const handleDrop = (targetTaskId: string) => {
+        if (draggedTaskId && targetTaskId !== draggedTaskId) {
+            onReorderTasks(draggedTaskId, targetTaskId);
+        }
+        setDraggedTaskId(null);
+        setDropTargetId(null);
+    };
+
+    const handleDragEnd = () => {
+        setDraggedTaskId(null);
+        setDropTargetId(null);
+    };
+
+    const handleDragLeave = () => {
+        setDropTargetId(null);
+    };
+
     return (
         <div className="p-4 md:p-6 h-full relative">
             <div className="relative z-10" style={{ height: `${totalHeight}px` }}>
@@ -403,6 +438,13 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
                                width: `calc(${width}% - 4px)`,
                                zIndex: zIndex,
                            }}
+                           onDragStart={handleDragStart}
+                           onDragOver={handleDragOver}
+                           onDrop={handleDrop}
+                           onDragEnd={handleDragEnd}
+                           onDragLeave={handleDragLeave}
+                           isBeingDragged={task.id === draggedTaskId}
+                           isDropTarget={task.id === dropTargetId}
                        />
                    ))}
                 </div>
