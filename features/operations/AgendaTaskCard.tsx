@@ -14,6 +14,9 @@ interface AgendaTaskCardProps {
     onDrop: (targetTaskId: string) => void;
     onDragEnd: () => void;
     onDragLeave: () => void;
+    onTouchStart: (e: React.TouchEvent, taskId: string) => void;
+    onTouchMove: (e: React.TouchEvent) => void;
+    onTouchEnd: () => void;
     isBeingDragged: boolean;
     isDropTarget: boolean;
 }
@@ -30,7 +33,7 @@ const getStatusStyles = (status: TaskStatus) => {
     }
 };
 
-const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, onEdit, onViewSubtasks, style, userColor, onDragStart, onDragOver, onDrop, onDragEnd, onDragLeave, isBeingDragged, isDropTarget }) => {
+const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, onEdit, onViewSubtasks, style, userColor, onDragStart, onDragOver, onDrop, onDragEnd, onDragLeave, onTouchStart, onTouchMove, onTouchEnd, isBeingDragged, isDropTarget }) => {
     const statusStyles = getStatusStyles(task.status);
     
     const handleStatusChange = (e: React.MouseEvent) => {
@@ -65,7 +68,7 @@ const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, o
     const combinedClasses = `
         absolute rounded-lg p-2 flex gap-2 transition-all duration-300 cursor-grab
         ${statusStyles}
-        ${isBeingDragged ? 'opacity-40' : ''}
+        ${isBeingDragged ? 'opacity-40 scale-105' : ''}
         ${isDropTarget ? 'drop-target-indicator' : ''}
     `;
 
@@ -73,11 +76,15 @@ const AgendaTaskCard: React.FC<AgendaTaskCardProps> = ({ task, onUpdateStatus, o
         <div
             style={cardStyle}
             draggable
+            data-task-id={task.id}
             onDragStart={() => onDragStart(task.id)}
             onDragOver={(e) => onDragOver(e, task.id)}
             onDrop={() => onDrop(task.id)}
             onDragEnd={onDragEnd}
             onDragLeave={onDragLeave}
+            onTouchStart={(e) => onTouchStart(e, task.id)}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
             onClick={onViewSubtasks}
             className={combinedClasses}
         >

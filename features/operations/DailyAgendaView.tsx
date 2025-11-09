@@ -347,7 +347,7 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     const currentTimePosition = getPositionForMinute(nowMinutes);
     
-    // --- Drag and Drop Handlers ---
+    // --- Drag and Drop Handlers for Mouse ---
     const handleDragStart = (taskId: string) => {
         setDraggedTaskId(taskId);
     };
@@ -375,6 +375,44 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
     const handleDragLeave = () => {
         setDropTargetId(null);
     };
+
+    // --- Drag and Drop Handlers for Touch ---
+    const handleTouchStart = (_e: React.TouchEvent, taskId: string) => {
+        setDraggedTaskId(taskId);
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (!draggedTaskId) return;
+        
+        // Prevent scrolling page while dragging a task
+        e.preventDefault();
+
+        const touch = e.touches[0];
+        const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+        
+        if (targetElement) {
+            const cardElement = targetElement.closest('[data-task-id]');
+            if (cardElement) {
+                const targetId = cardElement.getAttribute('data-task-id');
+                if (targetId && targetId !== draggedTaskId && targetId !== dropTargetId) {
+                    setDropTargetId(targetId);
+                }
+            } else {
+                 if (dropTargetId) {
+                     setDropTargetId(null);
+                 }
+            }
+        }
+    };
+
+    const handleTouchEnd = () => {
+        if (draggedTaskId && dropTargetId) {
+            onReorderTasks(draggedTaskId, dropTargetId);
+        }
+        setDraggedTaskId(null);
+        setDropTargetId(null);
+    };
+
 
     return (
         <div className="p-4 md:p-6 h-full relative">
@@ -443,6 +481,9 @@ const DailyAgendaView: React.FC<DailyAgendaViewProps> = ({ tasks, onUpdateStatus
                            onDrop={handleDrop}
                            onDragEnd={handleDragEnd}
                            onDragLeave={handleDragLeave}
+                           onTouchStart={handleTouchStart}
+                           onTouchMove={handleTouchMove}
+                           onTouchEnd={handleTouchEnd}
                            isBeingDragged={task.id === draggedTaskId}
                            isDropTarget={task.id === dropTargetId}
                        />
