@@ -1,91 +1,126 @@
 
-import React, { useState, useRef, MouseEvent, TouchEvent } from 'react';
+import React, { useState, useRef, MouseEvent, TouchEvent, useEffect } from 'react';
 import Icon from './Icon';
 
 interface SwipeButtonProps {
     onSwipe: () => void;
     text: string;
-    icon: 'chevron-right' | 'rotate-ccw' | 'x';
-    variant?: 'success' | 'danger';
-    pulse?: boolean;
+    icon?: 'chevron-right' | 'check' | 'check-circle';
+    className?: string;
+    disabled?: boolean;
 }
 
-const SwipeButton: React.FC<SwipeButtonProps> = ({ onSwipe, text, icon, variant = 'success', pulse = false }) => {
+const SwipeButton: React.FC<SwipeButtonProps> = ({ onSwipe, text, icon = 'chevron-right', className = 'bg-gray-100 border-gray-300', disabled = false }) => {
     const [isDragging, setIsDragging] = useState(false);
-    const [startX, setStartX] = useState(0);
-    const [diff, setDiff] = useState(0);
+    const [dragWidth, setDragWidth] = useState(0);
+    const [isCompleted, setIsCompleted] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
-    const handleRef = useRef<HTMLDivElement>(null);
+    const sliderRef = useRef<HTMLDivElement>(null);
 
-    const handleDragStart = (clientX: number) => {
+    // Reset state if disabled changes
+    useEffect(() => {
+        if (disabled) {
+            setDragWidth(0);
+            setIsDragging(false);
+        }
+    }, [disabled]);
+
+    const startDrag = (clientX: number) => {
+        if (disabled || isCompleted) return;
         setIsDragging(true);
-        setStartX(clientX);
-        if (handleRef.current) {
-            handleRef.current.style.transition = 'none';
-        }
     };
 
-    const handleDragMove = (clientX: number) => {
-        if (!isDragging || !containerRef.current || !handleRef.current) return;
-        let currentDiff = clientX - startX;
-        const maxDiff = containerRef.current.offsetWidth - handleRef.current.offsetWidth - 10;
-        currentDiff = Math.max(0, Math.min(currentDiff, maxDiff));
-        setDiff(currentDiff);
+    const onDrag = (clientX: number) => {
+        if (!isDragging || !containerRef.current || !sliderRef.current) return;
+        
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const sliderWidth = sliderRef.current.offsetWidth;
+        const maxDrag = containerRect.width - sliderWidth - 8; // 8px padding total roughly
+
+        let newWidth = clientX - containerRect.left - (sliderWidth / 2);
+        newWidth = Math.max(0, Math.min(newWidth, maxDrag));
+        
+        setDragWidth(newWidth);
     };
 
-    const handleDragEnd = () => {
-        if (!isDragging || !containerRef.current) {
-            setDiff(0);
-            return;
-        };
+    const endDrag = () => {
+        if (!isDragging || !containerRef.current || !sliderRef.current) return;
+        
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const maxDrag = containerRect.width - sliderRef.current.offsetWidth - 8;
+        const threshold = maxDrag * 0.9; // 90% to complete
 
-        const threshold = containerRef.current.offsetWidth * 0.7;
-        if (diff > threshold) {
+        if (dragWidth >= threshold) {
+            setDragWidth(maxDrag);
+            setIsCompleted(true);
             onSwipe();
+            // Reset after a delay allows visual confirmation
+            setTimeout(() => {
+                setIsCompleted(false);
+                setDragWidth(0);
+            }, 1000);
+        } else {
+            setDragWidth(0);
         }
-
         setIsDragging(false);
-        setDiff(0);
-        if (handleRef.current) {
-            handleRef.current.style.transition = 'transform 0.3s ease';
-        }
     };
 
     // Mouse Events
-    const onMouseDown = (e: MouseEvent<HTMLDivElement>) => handleDragStart(e.clientX);
-    const onMouseMove = (e: MouseEvent<HTMLDivElement>) => handleDragMove(e.clientX);
-    const onMouseUp = () => handleDragEnd();
-    const onMouseLeave = () => handleDragEnd();
-    
+    const onMouseDown = (e: MouseEvent) => startDrag(e.clientX);
+    const onMouseMove = (e: MouseEvent) => isDragging && onDrag(e.clientX);
+    const onMouseUp = () => endDrag();
+    const onMouseLeave = () => isDragging && endDrag();
+
     // Touch Events
-    const onTouchStart = (e: TouchEvent<HTMLDivElement>) => handleDragStart(e.touches[0].clientX);
-    const onTouchMove = (e: TouchEvent<HTMLDivElement>) => handleDragMove(e.touches[0].clientX);
-    const onTouchEnd = () => handleDragEnd();
-    
-    const handleStyle = { transform: `translateX(${diff}px)` };
+    const onTouchStart = (e: TouchEvent) => startDrag(e.touches[0].clientX);
+    const onTouchMove = (e: TouchEvent) => isDragging && onDrag(e.touches[0].clientX);
+    const onTouchEnd = () => endDrag();
 
     return (
-        <div
+        <div 
+            className={`relative h-14 rounded-full overflow-hidden select-none shadow-inner border ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${className}`}
             ref={containerRef}
-            className={`relative w-full h-[70px] bg-gray-100 rounded-full p-1.5 user-select-none overflow-hidden border border-gray-200 ${pulse ? 'animate-pulse' : ''}`}
             onMouseMove={onMouseMove}
             onMouseUp={onMouseUp}
             onMouseLeave={onMouseLeave}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
         >
+            {/* Background Text */}
+            <div className="absolute inset-0 flex items-center justify-center z-0">
+                <span className={`text-sm font-bold uppercase tracking-widest transition-opacity duration-300 ${isDragging ? 'opacity-50' : 'text-gray-500'}`}>
+                    {isCompleted ? '¡Completado!' : text}
+                </span>
+                {!isCompleted && !isDragging && (
+                    <div className="absolute right-4 animate-pulse text-gray-400">
+                        <Icon name="chevron-right" size={20} />
+                    </div>
+                )}
+            </div>
+
+            {/* Slider Handle */}
             <div
-                ref={handleRef}
-                className={`absolute top-1.5 left-1.5 w-[58px] h-[58px] rounded-full flex items-center justify-center cursor-grab z-10 ${variant === 'success' ? 'bg-green-500' : 'bg-red-500'}`}
-                style={handleStyle}
+                ref={sliderRef}
+                className={`absolute top-1 bottom-1 left-1 w-12 rounded-full flex items-center justify-center z-10 shadow-md border border-gray-100 transition-transform duration-100 ease-out ${isCompleted ? 'bg-green-500' : 'bg-white'}`}
+                style={{ 
+                    transform: `translateX(${dragWidth}px)`,
+                    transition: isDragging ? 'none' : 'transform 0.3s ease-out'
+                }}
                 onMouseDown={onMouseDown}
                 onTouchStart={onTouchStart}
             >
-                <Icon name={icon} className="text-white" size={36} />
+                <Icon 
+                    name={isCompleted ? 'check' : icon} 
+                    className={isCompleted ? 'text-white' : 'text-blue-600'} 
+                    size={24} 
+                />
             </div>
-            <span className="absolute inset-0 flex items-center justify-center text-gray-500 text-sm md:text-base font-bold uppercase tracking-wider z-0">
-                {text}
-            </span>
+            
+            {/* Progress Track */}
+            <div 
+                className={`absolute top-0 bottom-0 left-0 bg-green-500/20 z-0 transition-all duration-100 ease-out`}
+                style={{ width: `${dragWidth + 24}px` }} 
+            />
         </div>
     );
 };

@@ -1,3 +1,4 @@
+
 import React, { useState, KeyboardEvent } from 'react';
 import { KanbanTask, Subtask } from '../../types';
 import Icon from '../../components/Icon';
@@ -48,11 +49,11 @@ const SubTaskOverlay: React.FC<SubtaskOverlayProps> = ({ task, onClose, onUpdate
 
     return (
         <div
-            className="absolute inset-0 bg-gray-900/40 z-50 flex justify-center items-center p-4"
+            className="fixed inset-0 bg-gray-900/60 z-[60] flex justify-center items-center p-4 backdrop-blur-sm"
             onClick={onClose}
         >
             <div
-                className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col"
+                className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col animate-fadeIn"
                 onClick={(e) => e.stopPropagation()}
             >
                 <header className="p-4 border-b">
@@ -60,7 +61,7 @@ const SubTaskOverlay: React.FC<SubtaskOverlayProps> = ({ task, onClose, onUpdate
                     <p className="text-sm text-gray-500">{task.time} - {task.employee}</p>
                 </header>
 
-                <div className="p-4 flex-grow overflow-y-auto max-h-[50vh]">
+                <div className="p-4 flex-grow overflow-y-auto max-h-[60vh]">
                     {task.notes && task.notes.trim() !== '' && (
                         <div className="mb-4">
                             <h4 className="font-bold text-gray-700 mb-2">Notas</h4>
@@ -84,12 +85,12 @@ const SubTaskOverlay: React.FC<SubtaskOverlayProps> = ({ task, onClose, onUpdate
 
                     <div className="space-y-2">
                         {(task.subtasks || []).map(subtask => (
-                            <div key={subtask.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-md group">
+                            <div key={subtask.id} className="flex items-center gap-3 p-2 bg-gray-50 rounded-md group transition-colors hover:bg-gray-100">
                                 <input
                                     type="checkbox"
                                     checked={subtask.isCompleted}
                                     onChange={() => handleSubtaskToggle(subtask.id)}
-                                    className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 flex-shrink-0"
+                                    className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500 flex-shrink-0 cursor-pointer"
                                 />
                                 <span className={`flex-grow text-gray-800 ${subtask.isCompleted ? 'line-through text-gray-400' : ''}`}>
                                     {subtask.text}

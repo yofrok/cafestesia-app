@@ -1,14 +1,17 @@
+
 import React, { useState } from 'react';
 import { ProductionProcess, RecipeStep } from '../../types';
 import Icon from '../../components/Icon';
+import SwipeButton from '../../components/SwipeButton';
 
 interface ProcessCardProps {
     process: ProductionProcess;
     onAdvance: (processId: string) => void;
+    onPrevious: (processId: string) => void;
     onTogglePause: (processId: string) => void;
     onCancel: (processId: string) => void;
     onAcknowledgeFinish: (process: ProductionProcess) => void;
-    isAudioReady: boolean; // New prop
+    isAudioReady: boolean;
 }
 
 const formatTime = (seconds: number) => {
@@ -20,125 +23,264 @@ const formatTime = (seconds: number) => {
 
 const StepItem: React.FC<{ step: RecipeStep, isCompleted: boolean, isCurrent: boolean }> = ({ step, isCompleted, isCurrent }) => {
     let stateStyles = 'text-gray-500';
-    if (isCurrent) stateStyles = 'font-bold text-blue-700';
-    if (isCompleted) stateStyles = 'text-gray-400 line-through';
+    let iconClass = 'border-gray-300 text-gray-300';
+    let containerClass = '';
+
+    if (isCurrent) {
+        stateStyles = 'font-bold text-gray-900';
+        iconClass = step.type === 'passive' ? 'border-teal-500 bg-teal-500 text-white animate-pulse' : 'border-blue-600 bg-blue-600 text-white animate-pulse';
+        containerClass = 'bg-white shadow-sm -mx-2 px-2 py-2 rounded-md transform scale-105 transition-transform border border-gray-100';
+    } else if (isCompleted) {
+        stateStyles = 'text-gray-400 line-through decoration-gray-400';
+        iconClass = 'border-green-500 text-green-500 bg-green-50';
+        containerClass = 'py-1 opacity-75';
+    } else {
+        containerClass = 'py-1';
+    }
 
     return (
-        <div className="flex items-start gap-3 py-2">
-            <div className="flex-shrink-0 mt-1">
-                {isCompleted ? <Icon name="check-circle" size={16} className="text-green-500" /> : <div className={`w-4 h-4 rounded-full border-2 ${isCurrent ? 'border-blue-500 bg-blue-100' : 'border-gray-300'}`}></div>}
+        <div className={`flex items-center gap-3 transition-all duration-300 ${containerClass}`}>
+            <div className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center ${iconClass}`}>
+                 {isCompleted ? <Icon name="check" size={12} /> : isCurrent ? <div className="w-2 h-2 bg-white rounded-full"></div> : null}
             </div>
-            <p className={`text-sm ${stateStyles}`}>{step.instruction}</p>
+            <div className="flex-grow">
+                 <p className={`text-sm leading-tight ${stateStyles}`}>{step.instruction}</p>
+            </div>
+            {isCurrent && (
+                <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded flex-shrink-0 ${step.type === 'passive' ? 'bg-teal-100 text-teal-800 border border-teal-200' : 'bg-blue-100 text-blue-800 border border-blue-200'}`}>
+                    {step.type === 'passive' ? 'Espera' : 'Manual'}
+                </span>
+            )}
         </div>
     );
 };
 
 
-const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onTogglePause, onCancel, onAcknowledgeFinish, isAudioReady }) => {
+const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPrevious, onTogglePause, onCancel, onAcknowledgeFinish, isAudioReady }) => {
     const { state, name, steps, currentStepIndex, totalTimeLeft, stepTimeLeft } = process;
     const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
 
-    const getBorderColor = () => {
-        switch (state) {
-            case 'running': return 'border-green-500';
-            case 'alarm': return 'border-red-500 animate-pulse-red';
-            case 'finished': return 'border-blue-500';
-            case 'intermission': return 'border-yellow-500 animate-pulse-yellow';
-            case 'paused': return 'border-gray-300';
-            default: return 'border-gray-300';
-        }
+    const currentStep = steps[currentStepIndex];
+    const isPassive = currentStep?.type === 'passive';
+    const isRunning = state === 'running';
+    const isAlarm = state === 'alarm';
+    const isPausedState = state === 'paused' || state === 'intermission';
+
+    // --- Visual Themes ---
+    
+    // Passive Theme (Light/Teal) - Clean, calm, indicates "Waiting"
+    const passiveClasses = {
+        card: 'bg-teal-50 text-teal-900 border-teal-300',
+        header: 'bg-teal-100/60 border-b border-teal-200',
+        textMain: 'text-teal-800',
+        textSub: 'text-teal-600',
+        timer: 'text-teal-700',
+        stepList: 'bg-white/80 border-teal-200',
+        controls: 'border-t border-teal-200 pt-3'
     };
 
-    const getHeaderColor = () => {
-         switch (state) {
-            case 'running': return 'bg-green-100 text-green-800';
-            case 'alarm': return 'bg-red-100 text-red-800';
-            case 'finished': return 'bg-blue-100 text-blue-800';
-            case 'intermission': return 'bg-yellow-100 text-yellow-800';
-            case 'paused': return 'bg-gray-100 text-gray-800';
-            default: return 'bg-gray-100';
-        }
-    }
+    // Active Theme (White/Blue) - Sharp, indicates "Work"
+    const activeClasses = {
+        card: 'bg-white text-gray-800 border-blue-500',
+        header: 'bg-blue-50/60 border-b border-blue-100',
+        textMain: 'text-blue-800',
+        textSub: 'text-gray-500',
+        timer: 'text-blue-700',
+        stepList: 'bg-gray-50 border-gray-200',
+        controls: 'border-t border-gray-100 pt-3'
+    };
+
+    // Paused/Attention Theme (Amber/Yellow) - High visibility for "Waiting for Input"
+    const pausedClasses = {
+        card: 'bg-amber-50 text-amber-900 border-amber-400 shadow-md',
+        header: 'bg-amber-100 border-b border-amber-200',
+        textMain: 'text-amber-800',
+        textSub: 'text-amber-700 font-bold',
+        timer: 'text-amber-700',
+        stepList: 'bg-white/60 border-amber-200',
+        controls: 'border-t border-amber-200 pt-3'
+    };
+
+    // Alarm Theme (Red/Alert)
+    const alarmClasses = {
+        card: 'bg-red-50 text-red-900 border-red-500 animate-pulse-red',
+        header: 'bg-red-100 border-b border-red-200',
+        textMain: 'text-red-700',
+        textSub: 'text-red-600',
+        timer: 'text-red-600 animate-pulse',
+        stepList: 'bg-white border-red-200',
+        controls: 'border-t border-red-200 pt-3'
+    };
+
+    // Finished Theme (Green)
+    const finishedClasses = {
+        card: 'bg-green-50 text-green-900 border-green-600',
+        header: 'bg-green-100 border-b border-green-200',
+        textMain: 'text-green-700',
+        textSub: 'text-green-600',
+        timer: 'text-green-700',
+        stepList: 'bg-white border-green-200',
+        controls: 'border-t border-green-200 pt-3'
+    };
+
+    let theme = activeClasses; // Default
+    if (state === 'finished') theme = finishedClasses;
+    else if (state === 'alarm') theme = alarmClasses;
+    else if (isPausedState) theme = pausedClasses; // Priority: Attention needed
+    else if (isPassive) theme = passiveClasses; 
+
     
-    const renderAction = () => {
-        switch (state) {
-            case 'paused':
-            case 'intermission':
-                return (
-                    <button 
-                        onClick={() => onTogglePause(process.id)} 
-                        disabled={!isAudioReady}
-                        className="w-full bg-green-500 text-white font-bold py-3 rounded-lg hover:bg-green-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                    >
-                        {isAudioReady ? 'INICIAR' : 'Cargando audio...'}
-                    </button>
-                );
-            case 'running':
-                return <button onClick={() => onTogglePause(process.id)} className="w-full bg-yellow-500 text-white font-bold py-3 rounded-lg hover:bg-yellow-600 transition-colors">PAUSAR</button>;
-            case 'alarm':
-                 return <button onClick={() => onAdvance(process.id)} className="w-full bg-blue-500 text-white font-bold py-3 rounded-lg hover:bg-blue-600 transition-colors animate-pulse">SIGUIENTE PASO</button>;
-            case 'finished':
-                 return <button onClick={() => onAcknowledgeFinish(process)} className="w-full bg-gray-500 text-white font-bold py-3 rounded-lg hover:bg-gray-600 transition-colors">LIMPIAR</button>;
+    const renderControls = () => {
+        if (state === 'finished') {
+             return <button onClick={() => onAcknowledgeFinish(process)} className="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition-colors shadow-sm uppercase tracking-wider">Terminar y Archivar</button>;
         }
+        
+        if (state === 'alarm') {
+            return (
+                <SwipeButton 
+                    onSwipe={() => onAdvance(process.id)} 
+                    text="Deslizar para apagar alarma" 
+                    icon="check-circle"
+                    className="bg-red-100 border-red-300"
+                />
+            );
+        }
+
+        const canGoBack = currentStepIndex > 0;
+        const isPaused = state === 'paused' || state === 'intermission';
+
+        return (
+            <div className="flex flex-col gap-3">
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => onPrevious(process.id)}
+                        disabled={!canGoBack}
+                        className={`p-3 rounded-lg transition-colors ${canGoBack ? 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 shadow-sm' : 'bg-transparent border border-transparent text-gray-300 cursor-not-allowed'}`}
+                        title="Paso Anterior"
+                    >
+                        <Icon name="rotate-ccw" size={20} />
+                    </button>
+                    
+                    <button 
+                        onClick={() => onTogglePause(process.id)}
+                        className={`flex-grow flex items-center justify-center gap-2 font-bold rounded-lg transition-colors shadow-sm border ${
+                            isPaused 
+                                ? 'bg-green-500 text-white border-green-600 hover:bg-green-600 animate-pulse' 
+                                : 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
+                        }`}
+                    >
+                        <Icon name={isPaused ? "play-circle" : "minus"} size={20} />
+                        {isPaused ? (state === 'intermission' ? 'INICIAR TEMPORIZADOR' : 'REANUDAR') : 'PAUSAR'}
+                    </button>
+                </div>
+                
+                <div className="relative z-0">
+                    <SwipeButton 
+                        onSwipe={() => onAdvance(process.id)} 
+                        text="Deslizar al completar" 
+                        disabled={state === 'intermission'} 
+                        className={isPausedState ? "bg-amber-100 border-amber-300" : isPassive ? "bg-teal-100 border-teal-300" : "bg-gray-100 border-gray-300"}
+                    />
+                </div>
+            </div>
+        );
     };
     
     if (isConfirmingCancel) {
         return (
-            <div className={`flex flex-col bg-white rounded-lg border-2 border-red-400 shadow-lg p-4 justify-center items-center text-center`}>
-                <h4 className="font-bold text-lg mb-2 text-gray-800">¿Estás seguro?</h4>
-                <p className="text-sm text-gray-600 mb-4">Se perderá todo el progreso de este proceso.</p>
+            <div className={`flex flex-col bg-white rounded-xl border-2 border-red-400 shadow-lg p-6 justify-center items-center text-center min-h-[320px]`}>
+                <div className="bg-red-100 p-4 rounded-full mb-4">
+                    <Icon name="alert-triangle" size={40} className="text-red-600" />
+                </div>
+                <h4 className="font-bold text-xl mb-2 text-gray-800">¿Cancelar Proceso?</h4>
+                <p className="text-gray-600 mb-8">Se perderá el progreso actual de <span className="font-bold">{name}</span>.</p>
                 <div className="flex gap-4 w-full">
-                    <button onClick={() => setIsConfirmingCancel(false)} className="flex-1 py-2 px-4 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">No, volver</button>
-                    <button onClick={() => onCancel(process.id)} className="flex-1 py-2 px-4 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">Sí, cancelar</button>
+                    <button onClick={() => setIsConfirmingCancel(false)} className="flex-1 py-3 px-4 bg-gray-100 text-gray-800 font-bold rounded-lg hover:bg-gray-200">Volver</button>
+                    <button onClick={() => onCancel(process.id)} className="flex-1 py-3 px-4 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 shadow-md">Sí, Cancelar</button>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className={`flex flex-col bg-white rounded-lg border-2 shadow-sm ${getBorderColor()}`}>
-            <header className={`p-3 rounded-t-md ${getHeaderColor()}`}>
-                <h3 className={`font-bold text-lg`}>{name}</h3>
-            </header>
-            
-            <div className="p-4 flex-grow flex flex-col justify-between">
-                <div className="timers flex justify-around text-center mb-4">
-                    <div>
-                        <span className="text-xs text-gray-500 uppercase font-bold">Total Restante</span>
-                        <p className="text-3xl font-bold">{formatTime(totalTimeLeft)}</p>
+        <div className={`flex flex-col rounded-xl border-2 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden ${theme.card}`}>
+            {/* Header */}
+            <header className={`p-4 flex justify-between items-start ${theme.header}`}>
+                <div>
+                     <h3 className="font-bold text-xl leading-tight flex items-center gap-2 text-gray-800">
+                        {isPassive ? <Icon name="thermometer" className={state === 'running' ? "animate-pulse text-teal-600" : "text-teal-600"} /> : <Icon name="cake-slice" className="text-blue-600" />}
+                        {name}
+                     </h3>
+                     <p className={`text-xs font-bold uppercase tracking-wider mt-1 ${theme.textSub}`}>
+                        {state === 'running' ? (isPassive ? '• Proceso Automático' : '• Acción Requerida') : 
+                         state === 'paused' ? '• En Pausa - Requiere Atención' : 
+                         state === 'intermission' ? '• Listo para iniciar - Dale Play' : 
+                         state === 'alarm' ? '• ¡TIEMPO TERMINADO!' : '• Finalizado'}
+                     </p>
+                </div>
+                {isPassive && state === 'running' && (
+                    <div className="flex flex-col items-end">
+                        <span className="bg-white border border-teal-300 text-teal-700 px-3 py-1 rounded-full text-xs font-bold shadow-sm animate-pulse">
+                            LIBRE
+                        </span>
                     </div>
-                    <div>
-                        <span className="text-xs text-gray-500 uppercase font-bold">Paso Actual</span>
-                        <p className="text-3xl font-bold">{formatTime(stepTimeLeft)}</p>
+                )}
+            </header>
+
+            {/* Setup Instruction (Always show during step 0) */}
+            {currentStepIndex === 0 && process.recipe?.setupInstruction && (
+                <div className="bg-yellow-100 border-b-2 border-yellow-300 p-3 mb-0">
+                    <div className="flex items-start gap-3">
+                        <Icon name="settings" className="text-yellow-700 mt-1 flex-shrink-0" size={20} />
+                        <div>
+                            <h4 className="text-xs font-bold text-yellow-700 uppercase tracking-wider mb-0.5">Configuración Inicial</h4>
+                            <p className="text-sm font-medium text-yellow-900 leading-snug">{process.recipe.setupInstruction}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            <div className="p-4 flex-grow flex flex-col justify-between gap-6">
+                
+                {/* Timer Section */}
+                <div className="flex flex-col items-center justify-center relative">
+                    <div className="text-center">
+                        <span className={`text-[10px] uppercase font-bold tracking-widest mb-1 block opacity-60`}>Tiempo Restante</span>
+                        <p className={`text-7xl font-bold tabular-nums tracking-tighter leading-none ${theme.timer} transition-colors duration-500`}>
+                            {formatTime(stepTimeLeft)}
+                        </p>
+                    </div>
+                    <div className={`flex items-center gap-2 mt-2 text-xs font-semibold opacity-60`}>
+                        <Icon name="rotate-ccw" size={12} />
+                        <span>Total lote: {formatTime(totalTimeLeft)}</span>
                     </div>
                 </div>
 
-                <div className="steps-list mb-4 p-3 bg-gray-50 rounded-lg max-h-56 overflow-y-auto border border-gray-200">
-                    {steps.map((step, index) => (
-                        <StepItem 
-                            key={index}
-                            step={step}
-                            isCompleted={index < currentStepIndex}
-                            isCurrent={index === currentStepIndex && state !== 'finished'}
-                        />
-                    ))}
-                     {state === 'finished' && (
-                        <div className="flex items-start gap-3 py-2 text-green-700 font-bold">
-                            <Icon name="check-circle" size={16} className="mt-1" />
-                            <p className="text-sm">¡Proceso completado!</p>
-                        </div>
-                    )}
+                {/* Steps List */}
+                <div className={`rounded-lg border overflow-hidden flex flex-col max-h-48 ${theme.stepList}`}>
+                    <div className="overflow-y-auto p-2 space-y-1 custom-scrollbar">
+                        {steps.map((step, index) => (
+                            <StepItem 
+                                key={index}
+                                step={step}
+                                isCompleted={index < currentStepIndex}
+                                isCurrent={index === currentStepIndex && state !== 'finished'}
+                            />
+                        ))}
+                    </div>
                 </div>
                 
-                <div className="action-buttons space-y-2">
-                    {renderAction()}
-                    {state !== 'finished' && (
-                        <button 
-                            onClick={() => setIsConfirmingCancel(true)}
-                            className="w-full text-center text-xs text-gray-500 hover:text-red-600 font-semibold py-1 transition-colors"
-                        >
-                            Cancelar Proceso
-                        </button>
+                <div className={`${theme.controls}`}>
+                    {renderControls()}
+                    {state !== 'finished' && state !== 'alarm' && (
+                        <div className="text-center mt-2">
+                            <button 
+                                onClick={() => setIsConfirmingCancel(true)}
+                                className="text-xs text-gray-400 hover:text-red-500 font-semibold px-2 py-1 transition-colors"
+                            >
+                                Cancelar Todo
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>

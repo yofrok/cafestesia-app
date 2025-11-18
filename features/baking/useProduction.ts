@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ProductionProcess, Recipe, RecipeStep } from '../../types';
 import { useProductionAlerts } from './useProductionAlerts';
@@ -210,7 +211,7 @@ export const useProduction = () => {
     }, []);
 
     const startHeatingProcess = useCallback((duration: number, name: string) => {
-        const heatingSteps: RecipeStep[] = [{ instruction: name, duration: duration }];
+        const heatingSteps: RecipeStep[] = [{ instruction: name, duration: duration, type: 'passive' }];
         const newProcess: ProductionProcess = {
              id: `heating-${Date.now()}`,
              name: name,
@@ -235,10 +236,14 @@ export const useProduction = () => {
                 return { ...p, state: 'paused' }; // Becomes a static finished card
             }
             
-            // Acknowledging an alarm
+            // Logic for "Next Step" or Acknowledging Alarm
             if (p.currentStepIndex < p.steps.length - 1) {
                 const nextStepIndex = p.currentStepIndex + 1;
                 const nextStep = p.steps[nextStepIndex];
+                
+                // Calculate time adjustment if advancing early manually
+                // Note: totalTimeLeft isn't perfect when skipping, but gives a rough idea
+                
                 return {
                     ...p,
                     state: 'intermission' as const,
@@ -257,6 +262,27 @@ export const useProduction = () => {
             }
         }));
     }, [stopAlarmLoop, playSuccess]);
+
+    const goToPreviousStep = useCallback((processId: string) => {
+        stopAlarmLoop();
+        setProcesses(prev => prev.map(p => {
+            if (p.id !== processId) return p;
+            
+            if (p.currentStepIndex > 0) {
+                const prevStepIndex = p.currentStepIndex - 1;
+                const prevStep = p.steps[prevStepIndex];
+                
+                return {
+                    ...p,
+                    state: 'paused' as const, // Pause to let them regroup
+                    currentStepIndex: prevStepIndex,
+                    stepTimeLeft: prevStep.duration, // Reset timer for that step
+                    lastTickTimestamp: Date.now(),
+                };
+            }
+            return p;
+        }));
+    }, [stopAlarmLoop]);
     
     const togglePauseProcess = useCallback((processId: string) => {
         const processToToggle = processes.find(p => p.id === processId);
@@ -296,5 +322,5 @@ export const useProduction = () => {
         setProcesses(prev => prev.filter(p => p.id !== processId));
     }, [stopAlarmLoop]);
 
-    return { processes, startBakingProcess, startHeatingProcess, advanceProcess, togglePauseProcess, cancelProcess, isSoundMuted, toggleSoundMute, isAudioReady, playNotification, isSuspended, unlockAudio };
+    return { processes, startBakingProcess, startHeatingProcess, advanceProcess, goToPreviousStep, togglePauseProcess, cancelProcess, isSoundMuted, toggleSoundMute, isAudioReady, playNotification, isSuspended, unlockAudio };
 };

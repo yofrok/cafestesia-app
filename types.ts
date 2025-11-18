@@ -1,9 +1,11 @@
 
-
 // The RecipeStep interface is now defined centrally here to avoid module resolution issues.
+export type StepType = 'active' | 'passive';
+
 export interface RecipeStep {
     duration: number; // in seconds
     instruction: string;
+    type: StepType;
 }
 
 export enum Screen {
@@ -25,6 +27,7 @@ export interface RecipeVariant {
     stepOverrides: Array<{
         duration?: number;
         instruction?: string;
+        type?: StepType;
     } | null>; // null means no override for that step
 }
 

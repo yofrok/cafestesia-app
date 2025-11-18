@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, FormEvent } from 'react';
 import { Recipe, RecipeVariant, RecipeStep } from '../../../types';
 import Modal from '../../../components/Modal';
@@ -28,7 +29,7 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({ isOpen, onClose, onSa
             setSetupInstruction(recipe?.setupInstruction || '');
             setBaseVariantName(recipe?.baseVariantName || 'Receta Estándar');
             setBaseVariantDescription(recipe?.baseVariantDescription || '');
-            setSteps(recipe?.steps || [{ duration: 300, instruction: 'Nuevo paso' }]);
+            setSteps(recipe?.steps || [{ duration: 300, instruction: 'Nuevo paso', type: 'active' }]);
             setVariants(recipe?.variants || []);
         }
     }, [isOpen, recipe]);

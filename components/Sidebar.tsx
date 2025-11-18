@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Screen, KanbanTask, InventoryItem, ProductionProcess, User } from '../types';
 import Icon from './Icon';
@@ -77,22 +78,34 @@ const Sidebar: React.FC<SidebarProps> = ({ activeScreen, setActiveScreen, proces
             </header>
 
             <div className="flex-grow">
-                {activeProcesses.map(process => {
-                     const isAlarm = process.state === 'alarm';
-                     return (
-                        <AlertWidget
-                            key={process.id}
-                            title={isAlarm ? '¡Acción Requerida!' : 'En Producción'}
-                            onClick={() => handleNavClick(Screen.Baking)}
-                            isAlarm={isAlarm}
-                        >
-                            <div className="flex items-center gap-3 font-bold text-sm text-gray-800">
-                                <Icon name={isAlarm ? 'bell' : 'cake-slice'} className={isAlarm ? 'text-red-500' : 'text-green-600'} size={20} />
-                                <span>{process.name}</span>
-                            </div>
-                        </AlertWidget>
-                    )
-                })}
+                {activeProcesses.length > 0 && (
+                    <div className="mb-4">
+                        <h3 className="text-xs uppercase font-bold mb-2 px-2 text-blue-600">EN PRODUCCIÓN ({activeProcesses.length})</h3>
+                        <div className="flex flex-col gap-2">
+                             {activeProcesses.map(process => {
+                                 const isAlarm = process.state === 'alarm';
+                                 return (
+                                     <button
+                                         key={process.id}
+                                         onClick={() => handleNavClick(Screen.Baking)}
+                                         className={`w-full text-left p-2 rounded-lg transition-all border shadow-sm flex items-center gap-3 font-bold text-xs ${
+                                             isAlarm 
+                                             ? 'bg-red-50 border-red-400 hover:bg-red-100 text-red-900 animate-pulse' 
+                                             : 'bg-white border-gray-200 hover:bg-blue-50 hover:border-blue-300 text-gray-700'
+                                         }`}
+                                     >
+                                         <Icon 
+                                             name={isAlarm ? 'bell' : 'cake-slice'} 
+                                             className={isAlarm ? 'text-red-500' : 'text-blue-500'} 
+                                             size={16} 
+                                         />
+                                         <span className="truncate">{process.name}</span>
+                                     </button>
+                                 )
+                             })}
+                        </div>
+                    </div>
+                )}
 
                 {inProgressTasks.length > 0 && (
                     <div className="mb-4">

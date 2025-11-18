@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useProduction } from './useProduction';
 import Icon from '../../components/Icon';
@@ -18,7 +19,7 @@ const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productio
     const [isSelectionModalOpen, setSelectionModalOpen] = useState(false);
     const [processForFeedback, setProcessForFeedback] = useState<ProductionProcess | null>(null);
 
-    const { processes, startBakingProcess, startHeatingProcess, advanceProcess, togglePauseProcess, cancelProcess, isSoundMuted, toggleSoundMute, isAudioReady, isSuspended, unlockAudio } = productionHook;
+    const { processes, startBakingProcess, startHeatingProcess, advanceProcess, goToPreviousStep, togglePauseProcess, cancelProcess, isSoundMuted, toggleSoundMute, isAudioReady, isSuspended, unlockAudio } = productionHook;
     const { addFeedback } = recipeLogHook;
     const { recipes } = recipesHook;
 
@@ -83,6 +84,7 @@ const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productio
                                 key={process.id} 
                                 process={process}
                                 onAdvance={advanceProcess}
+                                onPrevious={goToPreviousStep}
                                 onTogglePause={togglePauseProcess}
                                 onCancel={cancelProcess}
                                 onAcknowledgeFinish={() => {}} // This is handled by the finished list
@@ -106,6 +108,7 @@ const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productio
                                     key={process.id} 
                                     process={process}
                                     onAdvance={advanceProcess}
+                                    onPrevious={goToPreviousStep}
                                     onTogglePause={() => {}}
                                     onCancel={cancelProcess}
                                     onAcknowledgeFinish={() => handleAcknowledgeFinish(process)}
