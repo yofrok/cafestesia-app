@@ -47,7 +47,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
     const [editingUser, setEditingUser] = useState<User | null>(null);
 
     // Recipe Management State
-    const { recipes, addRecipe, updateRecipe, deleteRecipe } = recipesHook;
+    const { recipes, addRecipe, updateRecipe, deleteRecipe, resetRecipesToFactory } = recipesHook;
     const [isRecipeModalOpen, setIsRecipeModalOpen] = useState(false);
     const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
 
@@ -133,8 +133,6 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
             // 1. Clear ONLY production state from LocalStorage (fixes stuck timers)
             localStorage.removeItem('productionState_v2');
             
-            // REMOVED: Database deletion logic. This button now only affects local UI state for timers.
-
             alert("Cronómetros reiniciados. La aplicación se recargará.");
             window.location.reload();
         } catch (error) {
@@ -345,19 +343,35 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
                          <h3 className="text-lg font-bold text-gray-800">Mantenimiento de la App</h3>
                     </div>
                     
-                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                        <h4 className="font-bold text-green-800 mb-2">🚑 Reiniciar Cronómetros (Seguro)</h4>
-                        <p className="text-sm text-green-700 mb-4">
-                            Usa esto si los cronómetros de panadería están trabados o no responden.
-                            <strong>Esto NO borrará tus tareas ni operaciones.</strong>
-                        </p>
-                        <button 
-                            onClick={handleSafeRepair}
-                            disabled={isRepairing}
-                            className="w-full px-4 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50"
-                        >
-                            {isRepairing ? 'Reparando...' : 'Reiniciar Estado de Cronómetros'}
-                        </button>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                            <h4 className="font-bold text-green-800 mb-2">🚑 Reiniciar Cronómetros (Seguro)</h4>
+                            <p className="text-sm text-green-700 mb-4">
+                                Usa esto si los cronómetros de panadería están trabados o no responden.
+                                <strong>Esto NO borrará tus tareas ni operaciones.</strong>
+                            </p>
+                            <button 
+                                onClick={handleSafeRepair}
+                                disabled={isRepairing}
+                                className="w-full px-4 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50"
+                            >
+                                {isRepairing ? 'Reparando...' : 'Reiniciar Estado de Cronómetros'}
+                            </button>
+                        </div>
+
+                        <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                            <h4 className="font-bold text-red-800 mb-2">⚠️ Restaurar Recetas de Fábrica</h4>
+                            <p className="text-sm text-red-700 mb-4">
+                                Borra TODAS las recetas y recarga las predeterminadas (Croissants, Pizza, etc.) limpias.
+                                <strong>Usa esto para arreglar la base de datos.</strong>
+                            </p>
+                            <button 
+                                onClick={resetRecipesToFactory}
+                                className="w-full px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors shadow-sm"
+                            >
+                                Restaurar Recetas
+                            </button>
+                        </div>
                     </div>
                 </div>
 

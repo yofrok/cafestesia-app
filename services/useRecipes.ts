@@ -118,41 +118,16 @@ const INITIAL_RECIPES_DATA: Omit<Recipe, 'id'>[] = [
     }
 ];
 
-const checkAndSeedMissingRecipes = async () => {
-    try {
-        const snapshot = await firestore.getDocs(recipesCollectionRef);
-        const existingNames = new Set(snapshot.docs.map(d => d.data().name));
-        
-        const batch = firestore.writeBatch(db);
-        let hasUpdates = false;
-        
-        INITIAL_RECIPES_DATA.forEach(recipe => {
-            if (!existingNames.has(recipe.name)) {
-                console.log(`Seeding missing recipe: ${recipe.name}`);
-                const newDocRef = firestore.doc(recipesCollectionRef);
-                batch.set(newDocRef, recipe);
-                hasUpdates = true;
-            }
-        });
-        
-        if (hasUpdates) {
-            await batch.commit();
-            console.log("New recipes added to database.");
-        }
-    } catch (error) {
-        console.error("Error checking/seeding recipes:", error);
-    }
-};
-
 export const useRecipes = () => {
     const [recipes, setRecipes] = useState<Recipe[]>([]);
 
     useEffect(() => {
-        // Perform smart seeding check on mount
-        checkAndSeedMissingRecipes();
-
         const q = firestore.query(recipesCollectionRef, firestore.orderBy("name"));
         const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
+            // If empty, we can suggest seeding, but we won't auto-seed to avoid conflicts during manual resets
+            if (snapshot.empty) {
+                 // Optional: console.log("No recipes found.");
+            }
             const recipesData = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
@@ -192,5 +167,36 @@ export const useRecipes = () => {
         }
     };
 
-    return { recipes, addRecipe, updateRecipe, deleteRecipe };
+    const resetRecipesToFactory = async () => {
+        if (!window.confirm("⚠️ ¿ESTÁS SEGURO?\n\nEsto BORRARÁ todas las recetas existentes y volverá a cargar las recetas estándar (Pizza, Croissants, Galletas, etc).\n\nEsta acción es ideal si los datos están desordenados, pero perderás recetas personalizadas.")) {
+            return;
+        }
+        
+        try {
+            console.log("Resetting recipes...");
+            const snapshot = await firestore.getDocs(recipesCollectionRef);
+            const batch = firestore.writeBatch(db);
+
+            // 1. Delete ALL existing recipes
+            snapshot.docs.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+
+            // 2. Create NEW standard recipes
+            INITIAL_RECIPES_DATA.forEach((recipe) => {
+                const newDocRef = firestore.doc(recipesCollectionRef);
+                batch.set(newDocRef, recipe);
+            });
+            
+            await batch.commit();
+            alert("Recetas restablecidas de fábrica correctamente.");
+            // Force reload to clear any stale local state
+            window.location.reload();
+        } catch (error) {
+            console.error("Error resetting recipes:", error);
+            alert("Error al restablecer recetas. Revisa la consola.");
+        }
+    };
+
+    return { recipes, addRecipe, updateRecipe, deleteRecipe, resetRecipesToFactory };
 };

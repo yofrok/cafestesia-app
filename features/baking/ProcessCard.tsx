@@ -11,7 +11,7 @@ interface ProcessCardProps {
     onTogglePause: (processId: string) => void;
     onCancel: (processId: string) => void;
     onAcknowledgeFinish: (process: ProductionProcess) => void;
-    isAudioReady: boolean;
+    isAudioReady: boolean; // Kept for interface compatibility
 }
 
 const formatTime = (seconds: number) => {
@@ -28,8 +28,13 @@ const StepItem: React.FC<{ step: RecipeStep, isCompleted: boolean, isCurrent: bo
 
     if (isCurrent) {
         stateStyles = 'font-bold text-gray-900';
-        iconClass = step.type === 'passive' ? 'border-teal-500 bg-teal-500 text-white animate-pulse' : 'border-blue-600 bg-blue-600 text-white animate-pulse';
-        containerClass = 'bg-white shadow-sm -mx-2 px-2 py-2 rounded-md transform scale-105 transition-transform border border-gray-100';
+        if (step.type === 'passive') {
+            iconClass = 'border-teal-500 bg-teal-500 text-white animate-pulse';
+            containerClass = 'bg-teal-50/80 shadow-md -mx-2 px-3 py-3 rounded-lg border-l-4 border-teal-500 transition-all duration-300 my-1';
+        } else {
+            iconClass = 'border-blue-600 bg-blue-600 text-white animate-pulse';
+            containerClass = 'bg-blue-50/80 shadow-md -mx-2 px-3 py-3 rounded-lg border-l-4 border-blue-600 transition-all duration-300 my-1';
+        }
     } else if (isCompleted) {
         stateStyles = 'text-gray-400 line-through decoration-gray-400';
         iconClass = 'border-green-500 text-green-500 bg-green-50';
@@ -47,7 +52,7 @@ const StepItem: React.FC<{ step: RecipeStep, isCompleted: boolean, isCurrent: bo
                  <p className={`text-sm leading-tight ${stateStyles}`}>{step.instruction}</p>
             </div>
             {isCurrent && (
-                <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded flex-shrink-0 ${step.type === 'passive' ? 'bg-teal-100 text-teal-800 border border-teal-200' : 'bg-blue-100 text-blue-800 border border-blue-200'}`}>
+                <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-full flex-shrink-0 shadow-sm ${step.type === 'passive' ? 'bg-white text-teal-700 border border-teal-200' : 'bg-white text-blue-700 border border-blue-200'}`}>
                     {step.type === 'passive' ? 'Espera' : 'Manual'}
                 </span>
             )}
@@ -56,14 +61,13 @@ const StepItem: React.FC<{ step: RecipeStep, isCompleted: boolean, isCurrent: bo
 };
 
 
-const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPrevious, onTogglePause, onCancel, onAcknowledgeFinish, isAudioReady }) => {
+const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPrevious, onTogglePause, onCancel, onAcknowledgeFinish }) => {
     const { state, name, steps, currentStepIndex, totalTimeLeft, stepTimeLeft } = process;
     const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
+    const [isConfirmingPrevious, setIsConfirmingPrevious] = useState(false);
 
     const currentStep = steps[currentStepIndex];
     const isPassive = currentStep?.type === 'passive';
-    const isRunning = state === 'running';
-    const isAlarm = state === 'alarm';
     const isPausedState = state === 'paused' || state === 'intermission';
 
     // --- Visual Themes ---
@@ -146,16 +150,41 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPreviou
             );
         }
 
+        if (isConfirmingPrevious) {
+            return (
+                <div className="flex flex-col gap-2 bg-orange-50 p-3 rounded-lg border border-orange-200 animate-fadeIn">
+                    <p className="text-xs font-bold text-orange-800 text-center">¿Regresar? Se perderá el progreso de este paso.</p>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => setIsConfirmingPrevious(false)}
+                            className="flex-1 py-2 px-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg text-xs hover:bg-gray-50"
+                        >
+                            Cancelar
+                        </button>
+                        <button 
+                            onClick={() => {
+                                onPrevious(process.id);
+                                setIsConfirmingPrevious(false);
+                            }}
+                            className="flex-1 py-2 px-3 bg-orange-500 text-white font-bold rounded-lg text-xs hover:bg-orange-600 shadow-sm"
+                        >
+                            Sí, Regresar
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
         const canGoBack = currentStepIndex > 0;
         const isPaused = state === 'paused' || state === 'intermission';
 
         return (
             <div className="flex flex-col gap-3">
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                     <button 
-                        onClick={() => onPrevious(process.id)}
+                        onClick={() => setIsConfirmingPrevious(true)}
                         disabled={!canGoBack}
-                        className={`p-3 rounded-lg transition-colors ${canGoBack ? 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 shadow-sm' : 'bg-transparent border border-transparent text-gray-300 cursor-not-allowed'}`}
+                        className={`p-3 rounded-lg transition-colors flex-shrink-0 ${canGoBack ? 'bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 shadow-sm' : 'bg-transparent border border-transparent text-gray-300 cursor-not-allowed'}`}
                         title="Paso Anterior"
                     >
                         <Icon name="rotate-ccw" size={20} />
@@ -163,14 +192,14 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPreviou
                     
                     <button 
                         onClick={() => onTogglePause(process.id)}
-                        className={`flex-grow flex items-center justify-center gap-2 font-bold rounded-lg transition-colors shadow-sm border ${
+                        className={`flex-grow flex items-center justify-center gap-2 font-bold rounded-lg transition-colors shadow-sm border text-sm md:text-base ${
                             isPaused 
                                 ? 'bg-green-500 text-white border-green-600 hover:bg-green-600 animate-pulse' 
                                 : 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
                         }`}
                     >
                         <Icon name={isPaused ? "play-circle" : "minus"} size={20} />
-                        {isPaused ? (state === 'intermission' ? 'INICIAR TEMPORIZADOR' : 'REANUDAR') : 'PAUSAR'}
+                        {isPaused ? (state === 'intermission' ? 'INICIAR SIGUIENTE' : 'REANUDAR') : 'PAUSAR'}
                     </button>
                 </div>
                 

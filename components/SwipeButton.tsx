@@ -25,7 +25,7 @@ const SwipeButton: React.FC<SwipeButtonProps> = ({ onSwipe, text, icon = 'chevro
         }
     }, [disabled]);
 
-    const startDrag = (clientX: number) => {
+    const startDrag = () => {
         if (disabled || isCompleted) return;
         setIsDragging(true);
     };
@@ -66,13 +66,13 @@ const SwipeButton: React.FC<SwipeButtonProps> = ({ onSwipe, text, icon = 'chevro
     };
 
     // Mouse Events
-    const onMouseDown = (e: MouseEvent) => startDrag(e.clientX);
+    const onMouseDown = () => startDrag();
     const onMouseMove = (e: MouseEvent) => isDragging && onDrag(e.clientX);
     const onMouseUp = () => endDrag();
     const onMouseLeave = () => isDragging && endDrag();
 
     // Touch Events
-    const onTouchStart = (e: TouchEvent) => startDrag(e.touches[0].clientX);
+    const onTouchStart = () => startDrag();
     const onTouchMove = (e: TouchEvent) => isDragging && onDrag(e.touches[0].clientX);
     const onTouchEnd = () => endDrag();
 
