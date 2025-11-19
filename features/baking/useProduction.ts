@@ -160,15 +160,18 @@ export const useProduction = () => {
         timerRef.current = window.setInterval(tick, 1000);
     }, [stopTimer, tick]);
 
+    // Derived state for the effect dependency
+    // This boolean is stable (true/false) unlike the 'processes' array which changes ref every tick
+    const isAnyProcessRunning = processes.some(p => p.state === 'running');
+
     useEffect(() => {
-        const isAnyProcessRunning = processes.some(p => p.state === 'running');
         if (isAnyProcessRunning) {
             startTimer();
         } else {
             stopTimer();
         }
         return stopTimer;
-    }, [processes, startTimer, stopTimer]);
+    }, [isAnyProcessRunning, startTimer, stopTimer]);
     
     
     // --- Audio Unlock Logic ---
@@ -197,10 +200,15 @@ export const useProduction = () => {
         const variant = recipe.variants?.find(v => v.id === variantId);
         const processName = variant ? `${recipe.name} (${variant.name})` : recipe.name;
 
+        // CRITICAL FIX: Sanitize the recipe object to remove any 'undefined' values.
+        // Firestore will reject the document if it contains undefined.
+        // JSON.stringify/parse is a quick way to strip undefined fields.
+        const sanitizedRecipe = JSON.parse(JSON.stringify(recipe));
+
         const newProcess: Omit<ProductionProcess, 'id'> = {
             name: processName,
             recipeId: recipe.id,
-            recipe: recipe,
+            recipe: sanitizedRecipe,
             type: 'baking',
             state: 'paused',
             currentStepIndex: 0,
@@ -209,7 +217,7 @@ export const useProduction = () => {
             totalTimeLeft: totalDuration,
             stepTimeLeft: processSteps[0].duration,
             lastTickTimestamp: Date.now(),
-            // Only add variantId if it is defined to avoid Firestore "undefined" error
+            // Only add variantId if it is defined
             ...(variantId ? { variantId } : {})
         };
         
