@@ -12,6 +12,8 @@ import { useUsers } from '../../services/useUsers';
 import UserFormModal from './UserFormModal';
 import { useRecipes } from '../../services/useRecipes';
 import RecipeFormModal from './recipes/RecipeFormModal';
+import { useKanban } from '../../services/useKanban';
+import RoutineManager from './routines/RoutineManager';
 
 interface SettingsScreenProps {
     providersHook: ReturnType<typeof useProviders>;
@@ -21,7 +23,7 @@ interface SettingsScreenProps {
     recipesHook: ReturnType<typeof useRecipes>;
 }
 
-type SettingsTab = 'production' | 'inventory' | 'operations';
+type SettingsTab = 'production' | 'inventory' | 'operations' | 'routines';
 
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categoriesHook, recipeLogHook, usersHook, recipesHook }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('production');
@@ -50,6 +52,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
     const { recipes, addRecipe, updateRecipe, deleteRecipe, resetRecipesToFactory } = recipesHook;
     const [isRecipeModalOpen, setIsRecipeModalOpen] = useState(false);
     const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
+    
+    // Tasks State (for maintenance actions)
+    const { clearAllTasks, resetTasksToDefault } = useKanban();
 
 
     const handleEditProvider = (provider: Provider) => {
@@ -141,8 +146,22 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
             setIsRepairing(false);
         }
     };
+    
+    const handleClearTasks = async () => {
+        if (window.confirm("⚠️ ¿Borrar TODAS las tareas?\n\nEsto dejará la agenda y el tablero completamente vacíos. Esta acción no se puede deshacer.")) {
+            await clearAllTasks();
+            alert("Todas las tareas han sido eliminadas.");
+        }
+    };
 
-    const TabButton: React.FC<{ tab: SettingsTab, label: string, icon: 'cake-slice' | 'archive' | 'clipboard-kanban' }> = ({ tab, label, icon }) => (
+    const handleResetTasks = async () => {
+        if (window.confirm("⚠️ ¿Restaurar Tareas por Defecto?\n\nEsto borrará todas tus tareas actuales y volverá a cargar las tareas de ejemplo.")) {
+            await resetTasksToDefault();
+            alert("Tareas restauradas a los valores por defecto.");
+        }
+    };
+
+    const TabButton: React.FC<{ tab: SettingsTab, label: string, icon: 'cake-slice' | 'archive' | 'clipboard-kanban' | 'list' }> = ({ tab, label, icon }) => (
         <button
             onClick={() => setActiveTab(tab)}
             className={`flex items-center gap-2 py-3 px-4 text-sm md:text-base font-bold border-b-4 transition-colors ${activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
@@ -162,8 +181,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
                 <div className="border-b border-gray-200">
                     <div className="flex gap-4 overflow-x-auto">
                         <TabButton tab="production" label="Producción" icon="cake-slice" />
+                        <TabButton tab="operations" label="Usuarios" icon="clipboard-kanban" />
+                        <TabButton tab="routines" label="Rutinas" icon="list" />
                         <TabButton tab="inventory" label="Inventario" icon="archive" />
-                        <TabButton tab="operations" label="Operaciones" icon="clipboard-kanban" />
                     </div>
                 </div>
 
@@ -243,6 +263,10 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
                                 </div>
                             </div>
                         </section>
+                    )}
+
+                    {activeTab === 'routines' && (
+                        <RoutineManager users={users} />
                     )}
 
                     {activeTab === 'inventory' && (
@@ -336,7 +360,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
                     )}
                 </div>
 
-                {/* Maintenance Zone (Previously Danger Zone) */}
+                {/* Maintenance Zone */}
                 <div className="mt-12 p-6 bg-white border-2 border-gray-200 rounded-xl shadow-sm">
                     <div className="flex items-center gap-2 mb-4">
                          <Icon name="settings" className="text-gray-600" size={24} />
@@ -344,33 +368,56 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* 1. Safe Timer Reset */}
                         <div className="bg-green-50 p-4 rounded-lg border border-green-200">
                             <h4 className="font-bold text-green-800 mb-2">🚑 Reiniciar Cronómetros (Seguro)</h4>
                             <p className="text-sm text-green-700 mb-4">
-                                Usa esto si los cronómetros de panadería están trabados o no responden.
-                                <strong>Esto NO borrará tus tareas ni operaciones.</strong>
+                                Usa esto si los cronómetros de panadería están trabados.
+                                <strong> NO borra datos.</strong>
                             </p>
                             <button 
                                 onClick={handleSafeRepair}
                                 disabled={isRepairing}
                                 className="w-full px-4 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50"
                             >
-                                {isRepairing ? 'Reparando...' : 'Reiniciar Estado de Cronómetros'}
+                                {isRepairing ? 'Reparando...' : 'Reiniciar Cronómetros'}
                             </button>
                         </div>
 
-                        <div className="bg-red-50 p-4 rounded-lg border border-red-200">
-                            <h4 className="font-bold text-red-800 mb-2">⚠️ Restaurar Recetas de Fábrica</h4>
-                            <p className="text-sm text-red-700 mb-4">
-                                Borra TODAS las recetas y recarga las predeterminadas (Croissants, Pizza, etc.) limpias.
-                                <strong>Usa esto para arreglar la base de datos.</strong>
+                        {/* 2. Recipe Reset */}
+                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <h4 className="font-bold text-blue-800 mb-2">🥣 Restaurar Recetas de Fábrica</h4>
+                            <p className="text-sm text-blue-700 mb-4">
+                                Borra TODAS las recetas actuales y recarga las recetas estándar (Pizza, Croissants, etc.) limpias.
                             </p>
                             <button 
                                 onClick={resetRecipesToFactory}
-                                className="w-full px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition-colors shadow-sm"
+                                className="w-full px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
                             >
                                 Restaurar Recetas
                             </button>
+                        </div>
+
+                        {/* 3. Task Reset */}
+                        <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                            <h4 className="font-bold text-orange-800 mb-2">📅 Gestión de Tareas</h4>
+                            <p className="text-sm text-orange-700 mb-4">
+                                Opciones para limpiar o reiniciar tu agenda de operaciones.
+                            </p>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={handleClearTasks}
+                                    className="flex-1 px-3 py-2 bg-orange-600 text-white font-bold rounded-lg hover:bg-orange-700 transition-colors shadow-sm text-xs"
+                                >
+                                    Borrar Todo
+                                </button>
+                                <button 
+                                    onClick={handleResetTasks}
+                                    className="flex-1 px-3 py-2 bg-white border border-orange-300 text-orange-700 font-bold rounded-lg hover:bg-orange-50 transition-colors shadow-sm text-xs"
+                                >
+                                    Restaurar Default
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -98,8 +98,31 @@ export interface KanbanTask {
     status: TaskStatus;
     subtasks?: Subtask[];
     notes?: string;
-    recurrenceId?: string;
+    recurrenceId?: string; // Legacy: For old recurring tasks
+    templateId?: string; // New: Link to the Master Routine
     addedBy: string;
+}
+
+// New Interface for Master Routines
+export interface TaskTemplate {
+    id: string;
+    title: string;
+    subtasks: Subtask[];
+    notes: string;
+    
+    // Scheduling
+    frequencyDays: number[]; // 0=Sun, 1=Mon, etc.
+    time: string; // "14:00"
+    duration: number;
+    shift: Shift;
+    zone: string;
+    isCritical: boolean;
+
+    // Smart Assignment
+    defaultEmployee: string; // Fallback user name
+    customAssignments: {
+        [dayNumber: string]: string; // "1": "Ali", "4": "Fer"
+    };
 }
 
 export interface PurchaseRecord {

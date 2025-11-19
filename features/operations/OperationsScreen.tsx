@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useEffect } from 'react';
 import { KanbanTask, User } from '../../types';
 import TaskFormModal, { TaskSubmitPayload } from './TaskFormModal';
 import { useKanban } from '../../services/useKanban';
@@ -25,7 +26,7 @@ export type EditMode = 'new' | 'single' | 'future';
 type OperationsView = 'agenda' | 'pending';
 
 const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, criticalTasks, users, selectedDate, setSelectedDate, highlightedTaskId, setHighlightedTaskId }) => {
-    const { tasks, addTask, addMultipleTasks, updateTask, updateTaskStatus, deleteTask, updateFutureTasks, deleteFutureTasks, reorderDailyTasks } = kanbanHook;
+    const { tasks, addTask, addMultipleTasks, updateTask, updateTaskStatus, deleteTask, updateFutureTasks, deleteFutureTasks, reorderDailyTasks, generateDailyRoutines } = kanbanHook;
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<KanbanTask | null>(null);
     const [employeeFilter, setEmployeeFilter] = useState<string>('All');
@@ -44,6 +45,19 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
 
     // State for save operation feedback
     const [isSaving, setIsSaving] = useState(false);
+
+    // --- Routine Generation Trigger ---
+    // Whenever the user views a date, check if we need to generate routine tasks for it.
+    const selectedDateStr = useMemo(() => {
+        const d = new Date(selectedDate);
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        return d.toISOString().split('T')[0];
+    }, [selectedDate]);
+
+    useEffect(() => {
+        generateDailyRoutines(selectedDateStr);
+    }, [selectedDateStr, generateDailyRoutines]);
+    // ----------------------------------
 
     const handleEdit = (task: KanbanTask) => {
         if (task.recurrenceId) {
@@ -243,12 +257,6 @@ const OperationsScreen: React.FC<OperationsScreenProps> = ({ kanbanHook, critica
             setPinInput('');
         }
     };
-
-    const selectedDateStr = useMemo(() => {
-        const d = new Date(selectedDate);
-        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-        return d.toISOString().split('T')[0];
-    }, [selectedDate]);
 
     const filteredTasks = useMemo(() => {
         return tasks.filter(task => employeeFilter === 'All' || task.employee === employeeFilter);

@@ -1,22 +1,13 @@
-import { useState, useEffect } from 'react';
-import { KanbanTask, TaskStatus } from '../types';
+
+import { useState, useEffect, useCallback } from 'react';
+import { KanbanTask, TaskStatus, TaskTemplate } from '../types';
 import { INITIAL_TASKS } from '../constants';
 import { db } from './firebase';
 // FIX: Use namespace import for firestore to fix module resolution issues.
 import * as firestore from 'firebase/firestore';
 
 const tasksCollectionRef = firestore.collection(db, 'tasks');
-
-const seedInitialData = async () => {
-    console.log("Seeding initial tasks to Firestore...");
-    const batch = firestore.writeBatch(db);
-    INITIAL_TASKS.forEach(task => {
-        const newDocRef = firestore.doc(tasksCollectionRef); // Create a new doc with a generated ID
-        batch.set(newDocRef, task);
-    });
-    await batch.commit();
-    console.log("Initial tasks seeded.");
-};
+const templatesCollectionRef = firestore.collection(db, 'task_templates');
 
 export const useKanban = () => {
     const [tasks, setTasks] = useState<KanbanTask[]>([]);
@@ -26,12 +17,9 @@ export const useKanban = () => {
         const q = firestore.query(tasksCollectionRef);
         
         const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
-            // Seed data if the collection is empty on first load
-            if (snapshot.empty && INITIAL_TASKS.length > 0) {
-                seedInitialData();
-                return; // The snapshot will re-fire once data is added
-            }
-
+            // REMOVED: Auto-seeding logic. 
+            // This prevents the "Zombie Task" issue where emptying the list causes it to regenerate immediately.
+            
             const tasksData = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data(),
@@ -168,6 +156,124 @@ export const useKanban = () => {
         }
     };
 
+    // --- Maintenance Functions ---
 
-    return { tasks, updateTaskStatus, addTask, addMultipleTasks, updateTask, deleteTask, updateFutureTasks, deleteFutureTasks, reorderDailyTasks };
+    const clearAllTasks = async () => {
+        try {
+            const snapshot = await firestore.getDocs(tasksCollectionRef);
+            const batch = firestore.writeBatch(db);
+            snapshot.docs.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+            console.log("All tasks cleared.");
+        } catch (error) {
+            console.error("Error clearing tasks:", error);
+            throw error;
+        }
+    };
+
+    const resetTasksToDefault = async () => {
+        try {
+            // 1. Clear existing
+            await clearAllTasks();
+            
+            // 2. Seed defaults
+            const batch = firestore.writeBatch(db);
+            INITIAL_TASKS.forEach(task => {
+                const newDocRef = firestore.doc(tasksCollectionRef);
+                batch.set(newDocRef, task);
+            });
+            await batch.commit();
+            console.log("Tasks reset to default.");
+        } catch (error) {
+             console.error("Error resetting tasks:", error);
+             throw error;
+        }
+    };
+
+    // --- Lazy Generation of Routines ---
+    const generateDailyRoutines = useCallback(async (dateStr: string) => {
+        try {
+            // 1. Get day of week (0-6) ensuring timezone safety for the string provided
+            // Parse YYYY-MM-DD manually to avoid timezone shifts
+            const [y, m, d] = dateStr.split('-').map(Number);
+            const localDate = new Date(y, m - 1, d);
+            const dayOfWeek = localDate.getDay();
+
+            // 2. Get all templates
+            const templatesSnapshot = await firestore.getDocs(templatesCollectionRef);
+            if (templatesSnapshot.empty) return;
+
+            // 3. Get existing tasks for this day to prevent duplicates
+            const existingTasksQuery = firestore.query(tasksCollectionRef, firestore.where("date", "==", dateStr));
+            const existingTasksSnapshot = await firestore.getDocs(existingTasksQuery);
+            const existingTemplateIds = new Set(
+                existingTasksSnapshot.docs
+                    .map(doc => doc.data().templateId)
+                    .filter(id => !!id)
+            );
+
+            const batch = firestore.writeBatch(db);
+            let tasksAdded = 0;
+
+            templatesSnapshot.forEach(doc => {
+                const template = { id: doc.id, ...doc.data() } as TaskTemplate;
+
+                // Check if routine runs today
+                if (template.frequencyDays.includes(dayOfWeek)) {
+                    // Check if already generated
+                    if (!existingTemplateIds.has(template.id)) {
+                        
+                        // Determine Employee
+                        const assignee = template.customAssignments?.[String(dayOfWeek)] || template.defaultEmployee;
+
+                        const newTask: Omit<KanbanTask, 'id'> = {
+                            text: template.title,
+                            employee: assignee,
+                            date: dateStr,
+                            time: template.time,
+                            duration: template.duration,
+                            shift: template.shift,
+                            zone: template.zone,
+                            isCritical: template.isCritical,
+                            status: 'todo',
+                            subtasks: template.subtasks || [],
+                            notes: template.notes || '',
+                            templateId: template.id,
+                            addedBy: 'Sistema (Rutina)'
+                        };
+
+                        const newRef = firestore.doc(tasksCollectionRef);
+                        batch.set(newRef, newTask);
+                        tasksAdded++;
+                    }
+                }
+            });
+
+            if (tasksAdded > 0) {
+                await batch.commit();
+                console.log(`Generated ${tasksAdded} routine tasks for ${dateStr}`);
+            }
+
+        } catch (error) {
+            console.error("Error generating daily routines:", error);
+        }
+    }, []);
+
+
+    return { 
+        tasks, 
+        updateTaskStatus, 
+        addTask, 
+        addMultipleTasks, 
+        updateTask, 
+        deleteTask, 
+        updateFutureTasks, 
+        deleteFutureTasks, 
+        reorderDailyTasks,
+        clearAllTasks,       
+        resetTasksToDefault,
+        generateDailyRoutines // Exposed
+    };
 };

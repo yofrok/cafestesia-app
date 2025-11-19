@@ -52,7 +52,7 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({ isOpen, onClose, onSa
     };
 
     const handleDelete = () => {
-        if (recipe) {
+        if (recipe && window.confirm(`⚠️ ¿Estás seguro de eliminar la receta "${recipe.name}"?\n\nEsta acción no se puede deshacer y perderás el historial asociado.`)) {
             onDelete(recipe.id);
             onClose();
         }

@@ -26,7 +26,9 @@ const getStepsForVariant = (recipe: Recipe, variantId?: string): RecipeStep[] =>
 };
 
 export const useProduction = () => {
-    const [processes, setProcesses] = useState<ProductionProcess[]>([]);
+    // We use a local type extension to store the 'base' time reference
+    // This prevents the 'snowball' effect where we subtract elapsed time from an already decremented value
+    const [processes, setProcesses] = useState<(ProductionProcess & { _baseStepTimeLeft?: number; _baseTotalTimeLeft?: number })[]>([]);
     const timerRef = useRef<number | null>(null);
     const pendingStartProcessId = useRef<string | null>(null);
 
@@ -49,14 +51,22 @@ export const useProduction = () => {
     // --- Firestore Real-time Listener ---
     useEffect(() => {
         // Order by start time so the list doesn't jump around
-        const q = firestore.query(processesCollectionRef, firestore.orderBy("lastTickTimestamp", "asc")); // Using timestamp as proxy for creation/update order
+        const q = firestore.query(processesCollectionRef, firestore.orderBy("lastTickTimestamp", "asc")); 
         
         const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
-            const processesData = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            } as ProductionProcess));
-            setProcesses(processesData);
+            const processesData = snapshot.docs.map(doc => {
+                // Cast to Omit<ProductionProcess, 'id'> to avoid TS warning about overwriting 'id' in the spread below
+                const data = doc.data() as Omit<ProductionProcess, 'id'>;
+                return {
+                    id: doc.id,
+                    ...data,
+                    // IMPORTANT: When data comes from DB, reset the base reference.
+                    // This is the anchor point for our local calculations.
+                    _baseStepTimeLeft: data.stepTimeLeft,
+                    _baseTotalTimeLeft: data.totalTimeLeft
+                };
+            });
+            setProcesses(processesData as (ProductionProcess & { _baseStepTimeLeft?: number; _baseTotalTimeLeft?: number })[]);
         }, (error) => {
             console.error("Error syncing production processes:", error);
         });
@@ -83,14 +93,16 @@ export const useProduction = () => {
             const updatedProcesses = prevProcesses.map(p => {
                 if (p.state !== 'running') return p;
                 
+                // Use the preserved base time if available, otherwise fallback to current (first tick)
+                const baseStep = p._baseStepTimeLeft ?? p.stepTimeLeft;
+                const baseTotal = p._baseTotalTimeLeft ?? p.totalTimeLeft;
+
                 // We calculate elapsed time locally relative to when the process was last "touched" (started/resumed)
-                // This 'lastTickTimestamp' effectively acts as the "Resume Time" stored in DB.
                 const elapsedSeconds = Math.round((now - p.lastTickTimestamp) / 1000);
                 
-                // Don't let it go below 0 purely visually here.
-                // The source of truth is the DB data (p.stepTimeLeft) minus elapsed.
-                const currentStepTimeLeft = Math.max(0, p.stepTimeLeft - elapsedSeconds);
-                const currentTotalTimeLeft = Math.max(0, p.totalTimeLeft - elapsedSeconds);
+                // Calculate new display values from the BASE, not the previous decremented value.
+                const currentStepTimeLeft = Math.max(0, baseStep - elapsedSeconds);
+                const currentTotalTimeLeft = Math.max(0, baseTotal - elapsedSeconds);
 
                 hasChanged = true;
 
@@ -105,10 +117,9 @@ export const useProduction = () => {
                 }
                 
                 // --- Alarm Trigger (Write to DB) ---
-                // If we hit 0 locally, we must update the DB so ALL devices know it's Alarm time.
                 if (currentStepTimeLeft === 0) {
                     // Prevent multiple writes
-                    if (p.state === 'running') { // Double check it hasn't already been updated
+                    if (p.state === 'running') { 
                         playAlarmLoop();
                         // Update Firestore! This stops the timer on all devices.
                         const processRef = firestore.doc(db, 'production_processes', p.id);
@@ -128,14 +139,14 @@ export const useProduction = () => {
                     };
                 }
                 
-                // Just update local display state, DO NOT write to DB on every tick (too expensive)
+                // Update local display state
                 return {
                     ...p,
-                    // We override these values locally for display, but they aren't saved to DB until pause/stop
                     stepTimeLeft: currentStepTimeLeft, 
                     totalTimeLeft: currentTotalTimeLeft,
-                    // We DON'T update lastTickTimestamp here, because we need the original anchor point
-                    // relative to Date.now() to keep calculating correctly.
+                    // Preserve the base!
+                    _baseStepTimeLeft: baseStep,
+                    _baseTotalTimeLeft: baseTotal
                 };
             });
             
@@ -166,7 +177,7 @@ export const useProduction = () => {
             const processIdToStart = pendingStartProcessId.current;
             pendingStartProcessId.current = null;
 
-            // Find the process to play sound for (visual feedback only, logic handled in togglePause)
+            // Find the process to play sound for
             const process = processes.find(p => p.id === processIdToStart);
             if (process && process.state === 'paused' && process.totalTimeLeft === process.totalTime) {
                 playStart();
@@ -190,7 +201,6 @@ export const useProduction = () => {
             name: processName,
             recipeId: recipe.id,
             recipe: recipe,
-            variantId: variantId,
             type: 'baking',
             state: 'paused',
             currentStepIndex: 0,
@@ -199,6 +209,8 @@ export const useProduction = () => {
             totalTimeLeft: totalDuration,
             stepTimeLeft: processSteps[0].duration,
             lastTickTimestamp: Date.now(),
+            // Only add variantId if it is defined to avoid Firestore "undefined" error
+            ...(variantId ? { variantId } : {})
         };
         
         try {
@@ -245,7 +257,6 @@ export const useProduction = () => {
             updates.state = 'intermission';
             updates.currentStepIndex = nextStepIndex;
             updates.stepTimeLeft = nextStep.duration;
-            // Note: totalTimeLeft is approximate here, we accept the drift
         } else {
             playSuccess();
             updates.state = 'finished';
@@ -292,7 +303,8 @@ export const useProduction = () => {
 
         if (process.state === 'running') {
             // PAUSING:
-            // We trust the current visual state from 'tick' as the pause point.
+            // We save the current visual state to DB so it acts as a checkpoint.
+            // This stops the server-side clock effectively.
             const now = Date.now();
             
             try {
