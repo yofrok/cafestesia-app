@@ -16,6 +16,7 @@ export enum Screen {
     Operations = 'operations',
     Inventory = 'inventory',
     Settings = 'settings',
+    Beverages = 'beverages', // New Screen
 }
 
 export interface RecipeVariant {
@@ -160,4 +161,42 @@ export interface RecipeFeedback {
     date: string; // ISO string format
     rating: number; // 1-5
     notes: string;
+}
+
+// --- BEVERAGE SYSTEM TYPES ---
+
+export type BeverageCategory = 'caliente' | 'frio' | 'metodo' | 'otro';
+
+export interface BeverageSize {
+    name: string; // e.g., "12oz", "16oz"
+    recipe: string; // Specific recipe text for this size
+}
+
+export interface Beverage {
+    id: string;
+    name: string;
+    category: BeverageCategory;
+    recipe: string; // Default recipe (used if no sizes)
+    modifiers?: string[]; 
+    hasSizes?: boolean; // Flag to enable size selection
+    sizes?: BeverageSize[]; // Array of available sizes
+}
+
+export interface OrderItem {
+    id: string; // Internal ID for the item instance
+    beverageId: string;
+    beverageName: string;
+    sizeName?: string; // Selected size e.g. "16oz"
+    modifiers: string[];
+    notes?: string;
+    recipeRef?: string; // Snapshot of recipe at time of order (specific to size)
+}
+
+export interface BeverageOrder {
+    id: string;
+    customerName: string; // "Mesa 4" or "Juan"
+    items: OrderItem[];
+    status: 'pending' | 'completed';
+    createdAt: number; // Timestamp
+    completedAt?: number;
 }

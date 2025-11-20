@@ -18,6 +18,7 @@ const BreadProductionScreen = lazy(() => import('./features/baking/BreadProducti
 const OperationsScreen = lazy(() => import('./features/operations/OperationsScreen'));
 const InventoryScreen = lazy(() => import('./features/inventory/InventoryScreen'));
 const SettingsScreen = lazy(() => import('./features/settings/SettingsScreen'));
+const BeveragesScreen = lazy(() => import('./features/beverages/BeveragesScreen'));
 
 type TimeStatus = 'due' | 'imminent' | 'normal';
 
@@ -143,6 +144,8 @@ const App: React.FC = () => {
         switch(activeScreen) {
             case Screen.Baking:
                 return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} recipesHook={recipesHook} />;
+            case Screen.Beverages:
+                return <BeveragesScreen />;
             case Screen.Operations:
                 return <OperationsScreen 
                             kanbanHook={kanbanHook} 

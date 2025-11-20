@@ -176,6 +176,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeScreen, setActiveScreen, proces
                     <Icon name="cake-slice" size={20} />
                     <span>Producción de Pan</span>
                 </NavButton>
+                <NavButton active={activeScreen === Screen.Beverages} onClick={() => handleNavClick(Screen.Beverages)}>
+                    <Icon name="list" size={20} />
+                    <span>Barra / KDS</span>
+                </NavButton>
                 <NavButton active={activeScreen === Screen.Operations} onClick={() => handleNavClick(Screen.Operations)}>
                     <Icon name="clipboard-kanban" size={20} />
                     <span>Operaciones</span>
