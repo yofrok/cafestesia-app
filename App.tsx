@@ -143,7 +143,7 @@ const App: React.FC = () => {
     const renderScreen = () => {
         switch(activeScreen) {
             case Screen.Baking:
-                return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} recipesHook={recipesHook} />;
+                return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} recipesHook={recipesHook} inventoryHook={inventoryHook} />;
             case Screen.Beverages:
                 return <BeveragesScreen />;
             case Screen.Operations:
@@ -161,7 +161,7 @@ const App: React.FC = () => {
             case Screen.Settings:
                 return <SettingsScreen providersHook={providersHook} categoriesHook={categoriesHook} recipeLogHook={recipeLogHook} usersHook={usersHook} recipesHook={recipesHook}/>;
             default:
-                return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} recipesHook={recipesHook} />;
+                return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} recipesHook={recipesHook} inventoryHook={inventoryHook} />;
         }
     };
 

@@ -53,7 +53,7 @@ export const useProduction = () => {
         // Order by start time so the list doesn't jump around
         const q = firestore.query(processesCollectionRef, firestore.orderBy("lastTickTimestamp", "asc")); 
         
-        const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
+        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
             const processesData = snapshot.docs.map(doc => {
                 // Cast to Omit<ProductionProcess, 'id'> to avoid TS warning about overwriting 'id' in the spread below
                 const data = doc.data() as Omit<ProductionProcess, 'id'>;

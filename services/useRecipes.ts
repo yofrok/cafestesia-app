@@ -123,7 +123,7 @@ export const useRecipes = () => {
 
     useEffect(() => {
         const q = firestore.query(recipesCollectionRef, firestore.orderBy("name"));
-        const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
+        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
             // If empty, we can suggest seeding, but we won't auto-seed to avoid conflicts during manual resets
             if (snapshot.empty) {
                  // Optional: console.log("No recipes found.");
@@ -142,7 +142,8 @@ export const useRecipes = () => {
 
     const addRecipe = async (recipeData: Omit<Recipe, 'id'>) => {
         try {
-            await firestore.addDoc(recipesCollectionRef, recipeData);
+            const sanitizedData = JSON.parse(JSON.stringify(recipeData));
+            await firestore.addDoc(recipesCollectionRef, sanitizedData);
         } catch (error) {
             console.error("Error adding recipe:", error);
         }
@@ -152,7 +153,8 @@ export const useRecipes = () => {
         const { id, ...data } = recipeData;
         const recipeRef = firestore.doc(db, 'recipes', id);
         try {
-            await firestore.updateDoc(recipeRef, data);
+            const sanitizedData = JSON.parse(JSON.stringify(data));
+            await firestore.updateDoc(recipeRef, sanitizedData);
         } catch (error) {
             console.error("Error updating recipe:", error);
         }

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ProductionProcess, RecipeStep } from '../../types';
 import Icon from '../../components/Icon';
 import SwipeButton from '../../components/SwipeButton';
@@ -11,7 +11,8 @@ interface ProcessCardProps {
     onTogglePause: (processId: string) => void;
     onCancel: (processId: string) => void;
     onAcknowledgeFinish: (process: ProductionProcess) => void;
-    isAudioReady: boolean; // Kept for interface compatibility
+    isAudioReady: boolean;
+    onRecordProduction?: (process: ProductionProcess, actualQuantity?: number) => void;
 }
 
 const formatTime = (seconds: number) => {
@@ -61,18 +62,26 @@ const StepItem: React.FC<{ step: RecipeStep, isCompleted: boolean, isCurrent: bo
 };
 
 
-const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPrevious, onTogglePause, onCancel, onAcknowledgeFinish }) => {
+const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPrevious, onTogglePause, onCancel, onAcknowledgeFinish, onRecordProduction }) => {
     const { state, name, steps, currentStepIndex, totalTimeLeft, stepTimeLeft } = process;
     const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
     const [isConfirmingPrevious, setIsConfirmingPrevious] = useState(false);
+    const [productionRecorded, setProductionRecorded] = useState(false);
+    
+    // Logic for partial batches with decimal support
+    const defaultQuantity = process.recipe?.outputQuantity || 1;
+    const [actualQuantityStr, setActualQuantityStr] = useState(String(defaultQuantity));
+
+    // Reset local quantity if process changes
+    useEffect(() => {
+        setActualQuantityStr(String(process.recipe?.outputQuantity || 1));
+    }, [process.id, process.recipe?.outputQuantity]);
 
     const currentStep = steps[currentStepIndex];
     const isPassive = currentStep?.type === 'passive';
     const isPausedState = state === 'paused' || state === 'intermission';
 
     // --- Visual Themes ---
-    
-    // Passive Theme (Light/Teal) - Clean, calm, indicates "Waiting"
     const passiveClasses = {
         card: 'bg-teal-50 text-teal-900 border-teal-300',
         header: 'bg-teal-100/60 border-b border-teal-200',
@@ -83,7 +92,6 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPreviou
         controls: 'border-t border-teal-200 pt-3'
     };
 
-    // Active Theme (White/Blue) - Sharp, indicates "Work"
     const activeClasses = {
         card: 'bg-white text-gray-800 border-blue-500',
         header: 'bg-blue-50/60 border-b border-blue-100',
@@ -94,7 +102,6 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPreviou
         controls: 'border-t border-gray-100 pt-3'
     };
 
-    // Paused/Attention Theme (Amber/Yellow) - High visibility for "Waiting for Input"
     const pausedClasses = {
         card: 'bg-amber-50 text-amber-900 border-amber-400 shadow-md',
         header: 'bg-amber-100 border-b border-amber-200',
@@ -105,7 +112,6 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPreviou
         controls: 'border-t border-amber-200 pt-3'
     };
 
-    // Alarm Theme (Red/Alert)
     const alarmClasses = {
         card: 'bg-red-50 text-red-900 border-red-500 animate-pulse-red',
         header: 'bg-red-100 border-b border-red-200',
@@ -116,7 +122,6 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPreviou
         controls: 'border-t border-red-200 pt-3'
     };
 
-    // Finished Theme (Green)
     const finishedClasses = {
         card: 'bg-green-50 text-green-900 border-green-600',
         header: 'bg-green-100 border-b border-green-200',
@@ -133,10 +138,60 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPreviou
     else if (isPausedState) theme = pausedClasses; // Priority: Attention needed
     else if (isPassive) theme = passiveClasses; 
 
+    const handleRecordProduction = () => {
+        const qty = parseFloat(actualQuantityStr);
+        if (isNaN(qty) || qty < 0) {
+            alert("Por favor ingresa una cantidad válida.");
+            return;
+        }
+
+        if (onRecordProduction) {
+            if (confirm(`¿Confirmar producción de ${qty} unidades?`)) {
+                onRecordProduction(process, qty);
+                setProductionRecorded(true);
+            }
+        }
+    };
     
     const renderControls = () => {
         if (state === 'finished') {
-             return <button onClick={() => onAcknowledgeFinish(process)} className="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition-colors shadow-sm uppercase tracking-wider">Terminar y Archivar</button>;
+             const hasIngredients = process.recipe?.ingredients && process.recipe.ingredients.length > 0;
+             
+             return (
+                 <div className="flex flex-col gap-3">
+                     {onRecordProduction && hasIngredients && !productionRecorded && (
+                         <div className="bg-white/60 p-3 rounded-lg border border-green-200">
+                             <div className="flex items-center justify-between mb-2">
+                                 <span className="text-sm font-bold text-green-800">Cantidad Real:</span>
+                                 <input 
+                                    type="number" 
+                                    value={actualQuantityStr}
+                                    onChange={(e) => setActualQuantityStr(e.target.value)}
+                                    className="w-20 p-1 text-center border border-green-300 rounded font-bold text-green-900 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    min="0"
+                                    step="any"
+                                 />
+                             </div>
+                             <button 
+                                onClick={handleRecordProduction}
+                                className="w-full bg-emerald-600 text-white font-bold py-2 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm flex items-center justify-center gap-2 text-sm"
+                            >
+                                <Icon name="boxes" size={16} />
+                                Registrar Inventario
+                            </button>
+                         </div>
+                     )}
+                     
+                     {productionRecorded && (
+                         <div className="w-full py-2 bg-green-100 text-green-800 text-center rounded-lg font-bold text-sm border border-green-200">
+                             <Icon name="check" size={14} className="inline mr-1"/> Inventario Actualizado ({actualQuantityStr})
+                         </div>
+                     )}
+                     <button onClick={() => onAcknowledgeFinish(process)} className="w-full bg-gray-600 text-white font-bold py-3 rounded-lg hover:bg-gray-700 transition-colors shadow-sm uppercase tracking-wider text-sm">
+                         Terminar y Archivar
+                     </button>
+                 </div>
+             );
         }
         
         if (state === 'alarm') {
@@ -256,7 +311,7 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPreviou
                 )}
             </header>
 
-            {/* Setup Instruction (Always show during step 0) */}
+            {/* Setup Instruction */}
             {currentStepIndex === 0 && process.recipe?.setupInstruction && (
                 <div className="bg-yellow-100 border-b-2 border-yellow-300 p-3 mb-0">
                     <div className="flex items-start gap-3">

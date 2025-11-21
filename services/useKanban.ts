@@ -16,7 +16,7 @@ export const useKanban = () => {
         // Query without date/time ordering to fetch all tasks, including unplanned ones.
         const q = firestore.query(tasksCollectionRef);
         
-        const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
+        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
             // REMOVED: Auto-seeding logic. 
             // This prevents the "Zombie Task" issue where emptying the list causes it to regenerate immediately.
             
@@ -210,7 +210,7 @@ export const useKanban = () => {
             const existingTasksSnapshot = await firestore.getDocs(existingTasksQuery);
             const existingTemplateIds = new Set(
                 existingTasksSnapshot.docs
-                    .map(doc => doc.data().templateId)
+                    .map(doc => (doc.data() as KanbanTask).templateId)
                     .filter(id => !!id)
             );
 
@@ -218,7 +218,8 @@ export const useKanban = () => {
             let tasksAdded = 0;
 
             templatesSnapshot.forEach(doc => {
-                const template = { id: doc.id, ...doc.data() } as TaskTemplate;
+                // FIX: Cast doc.data() to Omit<TaskTemplate, 'id'> to prevent TypeScript error about overwriting 'id'
+                const template = { id: doc.id, ...(doc.data() as Omit<TaskTemplate, 'id'>) } as TaskTemplate;
 
                 // Check if routine runs today
                 if (template.frequencyDays.includes(dayOfWeek)) {

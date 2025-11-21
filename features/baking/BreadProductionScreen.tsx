@@ -8,20 +8,23 @@ import { useRecipeLog } from '../../services/useRecipeLog';
 import { ProductionProcess } from '../../types';
 import FeedbackModal from './FeedbackModal';
 import { useRecipes } from '../../services/useRecipes';
+import { useInventory } from '../../services/useInventory';
 
 interface BreadProductionScreenProps {
     productionHook: ReturnType<typeof useProduction>;
     recipeLogHook: ReturnType<typeof useRecipeLog>;
     recipesHook: ReturnType<typeof useRecipes>;
+    inventoryHook: ReturnType<typeof useInventory>;
 }
 
-const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productionHook, recipeLogHook, recipesHook }) => {
+const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productionHook, recipeLogHook, recipesHook, inventoryHook }) => {
     const [isSelectionModalOpen, setSelectionModalOpen] = useState(false);
     const [processForFeedback, setProcessForFeedback] = useState<ProductionProcess | null>(null);
 
     const { processes, startBakingProcess, startHeatingProcess, advanceProcess, goToPreviousStep, togglePauseProcess, cancelProcess, isSoundMuted, toggleSoundMute, isAudioReady, isSuspended, unlockAudio } = productionHook;
     const { addFeedback } = recipeLogHook;
     const { recipes } = recipesHook;
+    const { produceBatch } = inventoryHook;
 
     const handleAcknowledgeFinish = (process: ProductionProcess) => {
         if (process.type === 'baking' && process.recipeId) {
@@ -29,6 +32,26 @@ const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productio
         } else {
             // For non-baking processes like heating, just clear them
             cancelProcess(process.id);
+        }
+    };
+
+    const handleRecordProduction = (process: ProductionProcess, actualQuantity?: number) => {
+        // CRITICAL FIX: Use the latest recipe from the 'recipes' list, not the stale snapshot in 'process.recipe'.
+        // This ensures that if the user added inventory mappings (ingredients/output) AFTER starting the process,
+        // we still use the correct, updated configuration for the transaction.
+        const latestRecipe = recipes.find(r => r.id === process.recipeId) || process.recipe;
+
+        if (latestRecipe) {
+            let multiplier = 1;
+            // If recipe has a standard output defined, calculate ratio based on actual production for ingredients
+            if (latestRecipe.outputQuantity && actualQuantity !== undefined && latestRecipe.outputQuantity > 0) {
+                multiplier = actualQuantity / latestRecipe.outputQuantity;
+            }
+            
+            // Pass actualQuantity as the 3rd argument to force that exact amount for the output product
+            produceBatch(latestRecipe, multiplier, actualQuantity);
+        } else {
+            alert("Error: No se encontró la receta vinculada para registrar el inventario.");
         }
     };
 
@@ -87,7 +110,7 @@ const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productio
                                 onPrevious={goToPreviousStep}
                                 onTogglePause={togglePauseProcess}
                                 onCancel={cancelProcess}
-                                onAcknowledgeFinish={() => {}} // This is handled by the finished list
+                                onAcknowledgeFinish={() => {}} 
                                 isAudioReady={isAudioReady}
                             />
                         ))}
@@ -113,6 +136,7 @@ const BreadProductionScreen: React.FC<BreadProductionScreenProps> = ({ productio
                                     onCancel={cancelProcess}
                                     onAcknowledgeFinish={() => handleAcknowledgeFinish(process)}
                                     isAudioReady={isAudioReady}
+                                    onRecordProduction={handleRecordProduction}
                                 />
                             ))}
                         </div>

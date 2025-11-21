@@ -14,7 +14,7 @@ export const useBeverages = () => {
     // 1. Sync Menu (Beverages)
     useEffect(() => {
         const q = firestore.query(beveragesCollectionRef, firestore.orderBy("name"));
-        const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
+        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
             const data = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
@@ -32,7 +32,7 @@ export const useBeverages = () => {
             ordersCollectionRef, 
             firestore.where("status", "==", "pending")
         );
-        const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
+        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
             const data = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()

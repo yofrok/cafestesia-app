@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { User } from '../types';
 import { db } from './firebase';
@@ -29,7 +30,7 @@ export const useUsers = () => {
 
     useEffect(() => {
         const q = firestore.query(usersCollectionRef, firestore.orderBy("name"));
-        const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
+        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
             if (snapshot.empty && MOCK_USERS.length > 0) {
                 seedInitialData();
                 return;

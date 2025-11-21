@@ -1,9 +1,11 @@
 
 import React, { useState, useEffect, FormEvent } from 'react';
-import { Recipe, RecipeVariant, RecipeStep } from '../../../types';
+import { Recipe, RecipeVariant, RecipeStep, RecipeIngredient } from '../../../types';
 import Modal from '../../../components/Modal';
 import RecipeStepEditor from './RecipeStepEditor';
 import RecipeVariantEditor from './RecipeVariantEditor';
+import RecipeIngredientsEditor from './RecipeIngredientsEditor';
+import { useInventory } from '../../../services/useInventory';
 
 interface RecipeFormModalProps {
     isOpen: boolean;
@@ -14,6 +16,8 @@ interface RecipeFormModalProps {
 }
 
 const RecipeFormModal: React.FC<RecipeFormModalProps> = ({ isOpen, onClose, onSave, onDelete, recipe }) => {
+    const { items: inventoryItems } = useInventory();
+
     const [name, setName] = useState('');
     const [pluralName, setPluralName] = useState('');
     const [setupInstruction, setSetupInstruction] = useState('');
@@ -21,6 +25,11 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({ isOpen, onClose, onSa
     const [baseVariantDescription, setBaseVariantDescription] = useState('');
     const [steps, setSteps] = useState<RecipeStep[]>([]);
     const [variants, setVariants] = useState<RecipeVariant[]>([]);
+    
+    // Inventory Integration State
+    const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
+    const [outputInventoryItemId, setOutputInventoryItemId] = useState<string>('');
+    const [outputQuantity, setOutputQuantity] = useState<number>(0);
 
     useEffect(() => {
         if (isOpen) {
@@ -31,6 +40,9 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({ isOpen, onClose, onSa
             setBaseVariantDescription(recipe?.baseVariantDescription || '');
             setSteps(recipe?.steps || [{ duration: 300, instruction: 'Nuevo paso', type: 'active' }]);
             setVariants(recipe?.variants || []);
+            setIngredients(recipe?.ingredients || []);
+            setOutputInventoryItemId(recipe?.outputInventoryItemId || '');
+            setOutputQuantity(recipe?.outputQuantity || 0);
         }
     }, [isOpen, recipe]);
 
@@ -38,7 +50,7 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({ isOpen, onClose, onSa
         e.preventDefault();
         const totalDuration = steps.reduce((sum, step) => sum + step.duration, 0);
         
-        onSave({
+        const recipeData = {
             name,
             pluralName,
             setupInstruction,
@@ -47,7 +59,12 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({ isOpen, onClose, onSa
             steps,
             variants,
             totalDuration,
-        });
+            ingredients,
+            outputInventoryItemId: outputInventoryItemId || undefined,
+            outputQuantity: outputQuantity || undefined
+        };
+        
+        onSave(recipeData);
         onClose();
     };
 
@@ -92,6 +109,42 @@ const RecipeFormModal: React.FC<RecipeFormModalProps> = ({ isOpen, onClose, onSa
                     setVariants={setVariants}
                     baseSteps={steps}
                 />
+
+                {/* Inventory Integration Section */}
+                <RecipeIngredientsEditor 
+                    ingredients={ingredients}
+                    setIngredients={setIngredients}
+                    inventoryItems={inventoryItems}
+                />
+
+                <div className="mt-2 p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                    <h4 className="font-bold text-indigo-800 mb-2 text-sm">Producción (Producto Terminado)</h4>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs text-gray-500 mb-1">Producto que genera</label>
+                            <select 
+                                value={outputInventoryItemId} 
+                                onChange={e => setOutputInventoryItemId(e.target.value)}
+                                className="w-full p-1.5 border border-gray-300 rounded text-sm"
+                            >
+                                <option value="">-- Ninguno --</option>
+                                {inventoryItems.map(item => (
+                                    <option key={item.id} value={item.id}>{item.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs text-gray-500 mb-1">Cantidad producida</label>
+                            <input 
+                                type="number" 
+                                value={outputQuantity}
+                                onChange={e => setOutputQuantity(parseFloat(e.target.value))}
+                                className="w-full p-1.5 border border-gray-300 rounded text-sm"
+                                placeholder="0"
+                            />
+                        </div>
+                    </div>
+                </div>
 
                 <div className="flex justify-between items-center mt-4 pt-4 border-t sticky bottom-0 bg-white">
                     <div>

@@ -16,20 +16,23 @@ export enum Screen {
     Operations = 'operations',
     Inventory = 'inventory',
     Settings = 'settings',
-    Beverages = 'beverages', // New Screen
+    Beverages = 'beverages',
 }
 
 export interface RecipeVariant {
     id: string;
     name: string;
     description?: string;
-    // An array of step modifications. The index corresponds to the step in the base recipe.
-    // If a step isn't overridden, it uses the base recipe's values.
     stepOverrides: Array<{
         duration?: number;
         instruction?: string;
         type?: StepType;
-    } | null>; // null means no override for that step
+    } | null>;
+}
+
+export interface RecipeIngredient {
+    inventoryItemId: string;
+    quantity: number; // Amount required per batch (in the inventory item's unit)
 }
 
 export interface Recipe {
@@ -39,9 +42,14 @@ export interface Recipe {
     setupInstruction: string;
     baseVariantName: string;
     baseVariantDescription?: string;
-    totalDuration: number; // This will now be calculated dynamically
+    totalDuration: number;
     steps: RecipeStep[];
     variants?: RecipeVariant[];
+    
+    // Inventory Integration
+    ingredients?: RecipeIngredient[];
+    outputInventoryItemId?: string; // The inventory item this recipe produces (e.g., "Frozen Croissant")
+    outputQuantity?: number; // How much it produces per batch
 }
 
 
@@ -51,22 +59,21 @@ export interface ProductionProcess {
     id: string;
     name: string;
     
-    // Fix: Added missing properties to support different process types and recipe linking.
     type: 'baking' | 'heating';
     recipeId?: string;
     recipe?: Recipe;
-    variantId?: string; // To know which variant is being used
+    variantId?: string; 
 
     state: ProductionProcessState;
     
     currentStepIndex: number;
     steps: RecipeStep[];
 
-    totalTime: number; // Initial total duration in seconds
+    totalTime: number; 
     totalTimeLeft: number; 
     stepTimeLeft: number;
 
-    lastTickTimestamp: number; // For offline calculation
+    lastTickTimestamp: number;
 }
 
 export interface User {
@@ -91,44 +98,41 @@ export interface KanbanTask {
     text: string;
     employee: string;
     shift: Shift;
-    time?: string; // "HH:mm" - Optional for unplanned tasks
-    date?: string; // "YYYY-MM-DD" - Optional for unplanned tasks
-    duration: number; // in minutes
+    time?: string; 
+    date?: string; 
+    duration: number;
     isCritical: boolean;
     zone: string;
     status: TaskStatus;
     subtasks?: Subtask[];
     notes?: string;
-    recurrenceId?: string; // Legacy: For old recurring tasks
-    templateId?: string; // New: Link to the Master Routine
+    recurrenceId?: string; 
+    templateId?: string; 
     addedBy: string;
 }
 
-// New Interface for Master Routines
 export interface TaskTemplate {
     id: string;
     title: string;
     subtasks: Subtask[];
     notes: string;
     
-    // Scheduling
-    frequencyDays: number[]; // 0=Sun, 1=Mon, etc.
-    time: string; // "14:00"
+    frequencyDays: number[]; 
+    time: string; 
     duration: number;
     shift: Shift;
     zone: string;
     isCritical: boolean;
 
-    // Smart Assignment
-    defaultEmployee: string; // Fallback user name
+    defaultEmployee: string; 
     customAssignments: {
-        [dayNumber: string]: string; // "1": "Ali", "4": "Fer"
+        [dayNumber: string]: string; 
     };
 }
 
 export interface PurchaseRecord {
     id: string;
-    date: string; // ISO string format
+    date: string; 
     quantity: number;
     totalPrice: number;
     providerName: string;
@@ -158,8 +162,8 @@ export interface Category {
 export interface RecipeFeedback {
     id: string;
     recipeId: string;
-    date: string; // ISO string format
-    rating: number; // 1-5
+    date: string; 
+    rating: number; 
     notes: string;
 }
 
@@ -168,35 +172,35 @@ export interface RecipeFeedback {
 export type BeverageCategory = 'caliente' | 'frio' | 'metodo' | 'otro';
 
 export interface BeverageSize {
-    name: string; // e.g., "12oz", "16oz"
-    recipe: string; // Specific recipe text for this size
+    name: string; 
+    recipe: string; 
 }
 
 export interface Beverage {
     id: string;
     name: string;
     category: BeverageCategory;
-    recipe: string; // Default recipe (used if no sizes)
+    recipe: string; 
     modifiers?: string[]; 
-    hasSizes?: boolean; // Flag to enable size selection
-    sizes?: BeverageSize[]; // Array of available sizes
+    hasSizes?: boolean; 
+    sizes?: BeverageSize[]; 
 }
 
 export interface OrderItem {
-    id: string; // Internal ID for the item instance
+    id: string; 
     beverageId: string;
     beverageName: string;
-    sizeName?: string; // Selected size e.g. "16oz"
+    sizeName?: string; 
     modifiers: string[];
     notes?: string;
-    recipeRef?: string; // Snapshot of recipe at time of order (specific to size)
+    recipeRef?: string; 
 }
 
 export interface BeverageOrder {
     id: string;
-    customerName: string; // "Mesa 4" or "Juan"
+    customerName: string; 
     items: OrderItem[];
     status: 'pending' | 'completed';
-    createdAt: number; // Timestamp
+    createdAt: number; 
     completedAt?: number;
 }

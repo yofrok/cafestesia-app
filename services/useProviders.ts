@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Provider } from '../types';
 import { db } from './firebase';
@@ -30,7 +31,7 @@ export const useProviders = () => {
 
     useEffect(() => {
         const q = firestore.query(providersCollectionRef, firestore.orderBy("name"));
-        const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
+        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
             if (snapshot.empty && MOCK_PROVIDERS.length > 0) {
                 seedInitialData();
                 return;

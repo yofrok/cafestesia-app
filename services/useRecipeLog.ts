@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { RecipeFeedback } from '../types';
 import { db } from './firebase';
@@ -11,7 +12,7 @@ export const useRecipeLog = () => {
 
     useEffect(() => {
         const q = firestore.query(recipeFeedbackCollectionRef, firestore.orderBy("date", "desc"));
-        const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
+        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
             const feedbackData = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()

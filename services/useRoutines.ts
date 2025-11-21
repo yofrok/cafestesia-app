@@ -11,7 +11,7 @@ export const useRoutines = () => {
 
     useEffect(() => {
         const q = firestore.query(templatesCollectionRef, firestore.orderBy("title"));
-        const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
+        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
             const data = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()

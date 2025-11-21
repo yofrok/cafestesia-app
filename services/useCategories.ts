@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Category } from '../types';
 import { db } from './firebase';
@@ -31,7 +32,7 @@ export const useCategories = () => {
 
     useEffect(() => {
         const q = firestore.query(categoriesCollectionRef, firestore.orderBy("name"));
-        const unsubscribe = firestore.onSnapshot(q, (snapshot) => {
+        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
             if (snapshot.empty && MOCK_CATEGORIES.length > 0) {
                 seedInitialData();
                 return;
