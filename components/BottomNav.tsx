@@ -36,12 +36,20 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeScreen, setActiveScreen, is
                 <span>Pan</span>
             </NavButton>
             <NavButton
+                isActive={activeScreen === Screen.Beverages}
+                onClick={() => setActiveScreen(Screen.Beverages)}
+                hasNotification={false} 
+            >
+                <Icon name="list" size={24} />
+                <span>Comandas</span>
+            </NavButton>
+            <NavButton
                 isActive={activeScreen === Screen.Operations}
                 onClick={() => setActiveScreen(Screen.Operations)}
                 hasNotification={urgentTasksCount > 0 || inProgressTasksCount > 0}
             >
                 <Icon name="clipboard-kanban" size={24} />
-                <span>Operaciones</span>
+                <span>Tareas</span>
             </NavButton>
             <NavButton
                 isActive={activeScreen === Screen.Inventory}
@@ -49,7 +57,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeScreen, setActiveScreen, is
                 hasNotification={shoppingListCount > 0}
             >
                 <Icon name="archive" size={24} />
-                <span>Inventario</span>
+                <span>Stock</span>
             </NavButton>
             <NavButton
                 isActive={activeScreen === Screen.Settings}

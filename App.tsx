@@ -143,9 +143,9 @@ const App: React.FC = () => {
     const renderScreen = () => {
         switch(activeScreen) {
             case Screen.Baking:
-                return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} recipesHook={recipesHook} inventoryHook={inventoryHook} />;
+                return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} recipesHook={recipesHook} inventoryHook={inventoryHook} categoriesHook={categoriesHook} />;
             case Screen.Beverages:
-                return <BeveragesScreen />;
+                return <BeveragesScreen inventoryHook={inventoryHook} />;
             case Screen.Operations:
                 return <OperationsScreen 
                             kanbanHook={kanbanHook} 
@@ -159,9 +159,9 @@ const App: React.FC = () => {
             case Screen.Inventory:
                 return <InventoryScreen inventoryHook={inventoryHook} providers={providersHook.providers} categories={categoriesHook.categories} />;
             case Screen.Settings:
-                return <SettingsScreen providersHook={providersHook} categoriesHook={categoriesHook} recipeLogHook={recipeLogHook} usersHook={usersHook} recipesHook={recipesHook}/>;
+                return <SettingsScreen providersHook={providersHook} categoriesHook={categoriesHook} recipeLogHook={recipeLogHook} usersHook={usersHook} recipesHook={recipesHook} inventoryHook={inventoryHook}/>;
             default:
-                return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} recipesHook={recipesHook} inventoryHook={inventoryHook} />;
+                return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} recipesHook={recipesHook} inventoryHook={inventoryHook} categoriesHook={categoriesHook} />;
         }
     };
 

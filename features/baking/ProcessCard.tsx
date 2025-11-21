@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ProductionProcess, RecipeStep } from '../../types';
 import Icon from '../../components/Icon';
 import SwipeButton from '../../components/SwipeButton';
@@ -12,7 +12,7 @@ interface ProcessCardProps {
     onCancel: (processId: string) => void;
     onAcknowledgeFinish: (process: ProductionProcess) => void;
     isAudioReady: boolean;
-    onRecordProduction?: (process: ProductionProcess, actualQuantity?: number) => void;
+    onRecordProduction?: (process: ProductionProcess) => void; // Simplified signature
 }
 
 const formatTime = (seconds: number) => {
@@ -66,16 +66,10 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPreviou
     const { state, name, steps, currentStepIndex, totalTimeLeft, stepTimeLeft } = process;
     const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
     const [isConfirmingPrevious, setIsConfirmingPrevious] = useState(false);
-    const [productionRecorded, setProductionRecorded] = useState(false);
     
-    // Logic for partial batches with decimal support
-    const defaultQuantity = process.recipe?.outputQuantity || 1;
-    const [actualQuantityStr, setActualQuantityStr] = useState(String(defaultQuantity));
-
-    // Reset local quantity if process changes
-    useEffect(() => {
-        setActualQuantityStr(String(process.recipe?.outputQuantity || 1));
-    }, [process.id, process.recipe?.outputQuantity]);
+    // Used for visual feedback only, actual logging happens via parent modal
+    // We can track if it was logged via props or local state if we passed that info down, 
+    // but for simplicity, the button will just trigger the modal.
 
     const currentStep = steps[currentStepIndex];
     const isPassive = currentStep?.type === 'passive';
@@ -138,57 +132,24 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPreviou
     else if (isPausedState) theme = pausedClasses; // Priority: Attention needed
     else if (isPassive) theme = passiveClasses; 
 
-    const handleRecordProduction = () => {
-        const qty = parseFloat(actualQuantityStr);
-        if (isNaN(qty) || qty < 0) {
-            alert("Por favor ingresa una cantidad válida.");
-            return;
-        }
-
-        if (onRecordProduction) {
-            if (confirm(`¿Confirmar producción de ${qty} unidades?`)) {
-                onRecordProduction(process, qty);
-                setProductionRecorded(true);
-            }
-        }
-    };
-    
     const renderControls = () => {
         if (state === 'finished') {
              const hasIngredients = process.recipe?.ingredients && process.recipe.ingredients.length > 0;
              
              return (
                  <div className="flex flex-col gap-3">
-                     {onRecordProduction && hasIngredients && !productionRecorded && (
-                         <div className="bg-white/60 p-3 rounded-lg border border-green-200">
-                             <div className="flex items-center justify-between mb-2">
-                                 <span className="text-sm font-bold text-green-800">Cantidad Real:</span>
-                                 <input 
-                                    type="number" 
-                                    value={actualQuantityStr}
-                                    onChange={(e) => setActualQuantityStr(e.target.value)}
-                                    className="w-20 p-1 text-center border border-green-300 rounded font-bold text-green-900 focus:outline-none focus:ring-2 focus:ring-green-500"
-                                    min="0"
-                                    step="any"
-                                 />
-                             </div>
-                             <button 
-                                onClick={handleRecordProduction}
-                                className="w-full bg-emerald-600 text-white font-bold py-2 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm flex items-center justify-center gap-2 text-sm"
-                            >
-                                <Icon name="boxes" size={16} />
-                                Registrar Inventario
-                            </button>
-                         </div>
+                     {onRecordProduction && hasIngredients && (
+                        <button 
+                            onClick={() => onRecordProduction(process)}
+                            className="w-full bg-emerald-600 text-white font-bold py-3 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm flex items-center justify-center gap-2 text-sm"
+                        >
+                            <Icon name="check-circle" size={18} />
+                            Registrar y Firmar Lote
+                        </button>
                      )}
                      
-                     {productionRecorded && (
-                         <div className="w-full py-2 bg-green-100 text-green-800 text-center rounded-lg font-bold text-sm border border-green-200">
-                             <Icon name="check" size={14} className="inline mr-1"/> Inventario Actualizado ({actualQuantityStr})
-                         </div>
-                     )}
                      <button onClick={() => onAcknowledgeFinish(process)} className="w-full bg-gray-600 text-white font-bold py-3 rounded-lg hover:bg-gray-700 transition-colors shadow-sm uppercase tracking-wider text-sm">
-                         Terminar y Archivar
+                         Archivar
                      </button>
                  </div>
              );

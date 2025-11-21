@@ -48,13 +48,21 @@ export const useBeverages = () => {
 
     // Actions: Beverages (Master Data)
     const addBeverage = async (data: Omit<Beverage, 'id'>) => {
-        try { await firestore.addDoc(beveragesCollectionRef, data); }
+        try { 
+            // Sanitize to remove undefined
+            const sanitized = JSON.parse(JSON.stringify(data));
+            await firestore.addDoc(beveragesCollectionRef, sanitized); 
+        }
         catch (e) { console.error(e); }
     };
 
     const updateBeverage = async (data: Beverage) => {
         const { id, ...rest } = data;
-        try { await firestore.updateDoc(firestore.doc(db, 'beverages', id), rest); }
+        try { 
+            // Sanitize to remove undefined
+            const sanitized = JSON.parse(JSON.stringify(rest));
+            await firestore.updateDoc(firestore.doc(db, 'beverages', id), sanitized); 
+        }
         catch (e) { console.error(e); }
     };
 

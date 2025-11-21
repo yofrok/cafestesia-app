@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, FormEvent } from 'react';
 import { InventoryItem, Provider, Category } from '../../types';
 import Modal from '../../components/Modal';
@@ -20,6 +21,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, on
     const [stock, setStock] = useState('0');
     const [unit, setUnit] = useState(INVENTORY_UNITS[0]);
     const [minStock, setMinStock] = useState('0');
+    const [isBakeryCritical, setIsBakeryCritical] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -30,6 +32,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, on
             setStock(String(item?.currentStock || 0));
             setUnit(item?.unit || INVENTORY_UNITS[0]);
             setMinStock(String(item?.minStock || 0));
+            setIsBakeryCritical(item?.isBakeryCritical || false);
             setError('');
         }
     }, [isOpen, item, categories]);
@@ -46,27 +49,20 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, on
         if (isNaN(stockNum) || stockNum < 0) { setError('Stock debe ser un número positivo.'); return; }
         if (isNaN(minStockNum) || minStockNum < 0) { setError('Nivel mínimo debe ser un número positivo.'); return; }
 
+        const commonData = {
+            name: name.trim(),
+            category: category.trim() || 'Sin Categoría',
+            providerPreferido: provider.trim(),
+            currentStock: stockNum,
+            unit: unit.trim(),
+            minStock: minStockNum,
+            isBakeryCritical: isBakeryCritical,
+        };
+
         if (item) {
-            const updatedItem: InventoryItem = {
-                ...item,
-                name: name.trim(),
-                category: category.trim() || 'Sin Categoría',
-                providerPreferido: provider.trim(),
-                currentStock: stockNum,
-                unit: unit.trim(),
-                minStock: minStockNum,
-            };
-            onSave(updatedItem);
+            onSave({ ...item, ...commonData });
         } else {
-            const newItemData: Omit<InventoryItem, 'id' | 'purchaseHistory'> = {
-                name: name.trim(),
-                category: category.trim() || 'Sin Categoría',
-                providerPreferido: provider.trim(),
-                currentStock: stockNum,
-                unit: unit.trim(),
-                minStock: minStockNum,
-            };
-            onSave(newItemData);
+            onSave(commonData);
         }
         onClose();
     };
@@ -115,6 +111,17 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, on
                 <FormGroup label="Nivel Mínimo (para Alertas)">
                     <input type="number" value={minStock} onChange={e => setMinStock(e.target.value)} step="any" min="0" required />
                 </FormGroup>
+
+                <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-200 flex items-center justify-between">
+                    <div>
+                        <span className="block text-sm font-bold text-emerald-800">Insumo Crítico de Panadería</span>
+                        <span className="text-xs text-emerald-600">Aparecerá en la columna "Insumos" del tablero de panadería.</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" className="sr-only peer" checked={isBakeryCritical} onChange={e => setIsBakeryCritical(e.target.checked)} />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                </div>
 
                 {error && <p className="text-sm text-red-600 text-center">{error}</p>}
                 

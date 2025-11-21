@@ -1,35 +1,40 @@
+
 import React, { useState, FormEvent, useEffect } from 'react';
 import { InventoryItem, Provider } from '../../types';
 import Modal from '../../components/Modal';
+import { useUsers } from '../../services/useUsers';
 
 interface StockUpdateModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onUpdate: (details: { itemId: string; change: number; purchaseDetails?: { totalPrice: number; providerName: string; } }) => void;
+    onUpdate: (details: { itemId: string; change: number; purchaseDetails?: { totalPrice: number; providerName: string; }; responsible: string; reason?: string; }) => void;
     item: InventoryItem;
     isAdding: boolean;
     providers: Provider[];
 }
 
 const StockUpdateModal: React.FC<StockUpdateModalProps> = ({ isOpen, onClose, onUpdate, item, isAdding, providers }) => {
+    const { users } = useUsers();
     const [amount, setAmount] = useState('');
     const [totalPrice, setTotalPrice] = useState('');
     const [providerName, setProviderName] = useState('');
+    const [responsible, setResponsible] = useState('');
+    const [reason, setReason] = useState('');
     const [error, setError] = useState('');
-    const actionText = isAdding ? 'Añadir' : 'Usar';
+    
+    const actionText = isAdding ? 'Añadir' : 'Usar / Mermar';
 
     useEffect(() => {
         if (isOpen) {
             setAmount('');
             setTotalPrice('');
             setProviderName(item.providerPreferido || (providers.length > 0 ? providers[0].name : ''));
+            setResponsible(users.length > 0 ? users[0].name : '');
+            setReason('');
             setError('');
         }
-    }, [isOpen, item, providers]);
+    }, [isOpen, item, providers, users]);
 
-
-    // FIX: Refactored handleSubmit to build the payload and call onUpdate within conditional branches.
-    // This avoids the error "Property 'purchaseDetails' does not exist on type 'unknown'" by not mutating the payload object after creation.
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
         setError('');
@@ -39,6 +44,17 @@ const StockUpdateModal: React.FC<StockUpdateModalProps> = ({ isOpen, onClose, on
             setError('Introduce una cantidad válida mayor que 0.');
             return;
         }
+        
+        if (!responsible) {
+            setError('Debes seleccionar un responsable.');
+            return;
+        }
+
+        const commonPayload = {
+            itemId: item.id,
+            responsible: responsible,
+            reason: reason
+        };
 
         if (isAdding) {
             const priceNum = parseFloat(totalPrice);
@@ -47,7 +63,7 @@ const StockUpdateModal: React.FC<StockUpdateModalProps> = ({ isOpen, onClose, on
                 return;
             }
             onUpdate({
-                itemId: item.id,
+                ...commonPayload,
                 change: amountNum,
                 purchaseDetails: {
                     totalPrice: priceNum,
@@ -56,7 +72,7 @@ const StockUpdateModal: React.FC<StockUpdateModalProps> = ({ isOpen, onClose, on
             });
         } else {
             onUpdate({
-                itemId: item.id,
+                ...commonPayload,
                 change: -amountNum,
             });
         }
@@ -71,11 +87,11 @@ const StockUpdateModal: React.FC<StockUpdateModalProps> = ({ isOpen, onClose, on
                     <p>Stock Actual: {item.currentStock} {item.unit}</p>
                 </div>
                 
-                <FormGroup label={`Cantidad a ${actionText.toLowerCase()}`}>
+                <FormGroup label={`Cantidad a ${isAdding ? 'añadir' : 'restar'}`}>
                     <input type="number" value={amount} onChange={e => setAmount(e.target.value)} step="any" min="0.01" required autoFocus />
                 </FormGroup>
 
-                {isAdding && (
+                {isAdding ? (
                     <>
                        <FormGroup label="Precio Total de la Compra ($)">
                             <input type="number" value={totalPrice} onChange={e => setTotalPrice(e.target.value)} step="any" min="0" required />
@@ -89,7 +105,34 @@ const StockUpdateModal: React.FC<StockUpdateModalProps> = ({ isOpen, onClose, on
                             </select>
                        </FormGroup>
                     </>
+                ) : (
+                    <>
+                        <FormGroup label="Motivo (Opcional)">
+                            <input 
+                                type="text" 
+                                value={reason} 
+                                onChange={e => setReason(e.target.value)} 
+                                placeholder="Ej: Producción, Merma, Degustación..." 
+                                list="reasons-list"
+                            />
+                        </FormGroup>
+                        <datalist id="reasons-list">
+                            <option value="Producción venta" />
+                            <option value="Merma (Caducado)" />
+                            <option value="Merma (Dañado)" />
+                            <option value="Consumo Interno" />
+                            <option value="Ajuste de Inventario" />
+                        </datalist>
+                    </>
                 )}
+
+                <FormGroup label="Responsable">
+                    <select value={responsible} onChange={e => setResponsible(e.target.value)} required>
+                        {users.map(u => (
+                            <option key={u.id} value={u.name}>{u.name}</option>
+                        ))}
+                    </select>
+                </FormGroup>
 
                 {error && <p className="text-sm text-red-600 text-center">{error}</p>}
 

@@ -5,6 +5,7 @@ import { useInventory } from '../../services/useInventory';
 import InventoryList from './InventoryList';
 import ShoppingList from './ShoppingList';
 import ProductFormModal from './ProductFormModal';
+import StockHistoryLog from './StockHistoryLog'; // Import
 import { InventoryItem, Provider, Category } from '../../types';
 
 type InventoryView = 'general' | 'shopping-list';
@@ -16,11 +17,12 @@ interface InventoryScreenProps {
 }
 
 const InventoryScreen: React.FC<InventoryScreenProps> = ({ inventoryHook, providers, categories }) => {
-    const { items, addItem, updateItem, deleteItem, recordStockChange } = inventoryHook;
+    const { items, addItem, updateItem, deleteItem, recordStockChange, stockLogs } = inventoryHook;
     const [activeView, setActiveView] = useState<InventoryView>('general');
     const [search, setSearch] = useState('');
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+    const [showHistory, setShowHistory] = useState(false);
 
     const handleEdit = (item: InventoryItem) => {
         setEditingItem(item);
@@ -64,6 +66,10 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({ inventoryHook, provid
             )}
         </button>
     );
+    
+    if (showHistory) {
+        return <StockHistoryLog logs={stockLogs} onClose={() => setShowHistory(false)} />;
+    }
 
     return (
         <div className="flex flex-col h-full bg-gray-50">
@@ -76,10 +82,19 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({ inventoryHook, provid
                             {items.length} productos totales • {lowStockCount} alertas
                         </p>
                     </div>
-                    <button onClick={handleAddNew} className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm shadow-sm">
-                        <Icon name="plus-circle" size={18} />
-                        <span className="hidden sm:inline">Nuevo Producto</span>
-                    </button>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => setShowHistory(true)}
+                            className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                            title="Ver Historial"
+                        >
+                            <Icon name="list" size={20} />
+                        </button>
+                        <button onClick={handleAddNew} className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm shadow-sm">
+                            <Icon name="plus-circle" size={18} />
+                            <span className="hidden sm:inline">Nuevo Producto</span>
+                        </button>
+                    </div>
                 </div>
                 
                 <div className="flex px-4 gap-1 overflow-x-auto">
@@ -92,8 +107,7 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({ inventoryHook, provid
             <div className="p-4 bg-gray-50 flex-shrink-0">
                 <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                        <Icon name="search" size={20} /> {/* We don't have search icon in map yet, using generic style but relying on fallback or new icon addition if needed. Actually let's use a known one or just absolute position. */}
-                        {/* Re-using existing icon component, let's assume 'list' for now as search icon is missing in provided map, or just text input style */}
+                        <Icon name="list" size={20} />
                     </div>
                     <input
                         type="search"

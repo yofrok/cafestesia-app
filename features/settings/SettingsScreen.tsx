@@ -14,6 +14,8 @@ import { useRecipes } from '../../services/useRecipes';
 import RecipeFormModal from './recipes/RecipeFormModal';
 import RoutineManager from './routines/RoutineManager';
 import BeverageManager from './beverages/BeverageManager';
+import AppDocumentation from './AppDocumentation';
+import { useInventory } from '../../services/useInventory';
 
 interface SettingsScreenProps {
     providersHook: ReturnType<typeof useProviders>;
@@ -21,11 +23,12 @@ interface SettingsScreenProps {
     recipeLogHook: ReturnType<typeof useRecipeLog>;
     usersHook: ReturnType<typeof useUsers>;
     recipesHook: ReturnType<typeof useRecipes>;
+    inventoryHook: ReturnType<typeof useInventory>; // Added this
 }
 
-type SettingsTab = 'production' | 'inventory' | 'operations' | 'routines' | 'beverages';
+type SettingsTab = 'production' | 'inventory' | 'operations' | 'routines' | 'beverages' | 'docs';
 
-const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categoriesHook, recipeLogHook, usersHook, recipesHook }) => {
+const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categoriesHook, recipeLogHook, usersHook, recipesHook, inventoryHook }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('production');
 
     // Provider state
@@ -125,7 +128,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
         }
     };
 
-    const TabButton: React.FC<{ tab: SettingsTab, label: string, icon: 'cake-slice' | 'archive' | 'clipboard-kanban' | 'list' | 'star' }> = ({ tab, label, icon }) => (
+    const TabButton: React.FC<{ tab: SettingsTab, label: string, icon: 'cake-slice' | 'archive' | 'clipboard-kanban' | 'list' | 'star' | 'clipboard-list' }> = ({ tab, label, icon }) => (
         <button
             onClick={() => setActiveTab(tab)}
             className={`flex items-center gap-2 py-3 px-4 text-sm md:text-base font-bold border-b-4 transition-colors whitespace-nowrap ${activeTab === tab ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
@@ -145,14 +148,17 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
                 <div className="border-b border-gray-200">
                     <div className="flex gap-4 overflow-x-auto">
                         <TabButton tab="production" label="Panadería" icon="cake-slice" />
-                        <TabButton tab="beverages" label="Bebidas" icon="star" />
+                        <TabButton tab="beverages" label="Menú/Barra" icon="star" />
                         <TabButton tab="operations" label="Usuarios" icon="clipboard-kanban" />
                         <TabButton tab="routines" label="Rutinas" icon="list" />
                         <TabButton tab="inventory" label="Inventario" icon="archive" />
+                        <TabButton tab="docs" label="Info / WDS" icon="clipboard-list" />
                     </div>
                 </div>
 
                 <div className="mt-6">
+                    {activeTab === 'docs' && <AppDocumentation />}
+
                     {activeTab === 'production' && (
                          <section className="space-y-8">
                             <div className="flex justify-between items-center mb-4">
@@ -235,7 +241,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ providersHook, categori
                     )}
 
                     {activeTab === 'beverages' && (
-                        <BeverageManager />
+                        <BeverageManager inventoryHook={inventoryHook} />
                     )}
 
                     {activeTab === 'inventory' && (

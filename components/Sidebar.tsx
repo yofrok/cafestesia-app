@@ -65,8 +65,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeScreen, setActiveScreen, proces
 
     const sidebarClasses = `
         sidebar-nav flex flex-col bg-white p-4 border-r border-gray-200 overflow-y-auto 
-        fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out 
-        md:relative md:w-auto md:translate-x-0
+        fixed inset-y-0 left-0 z-50 w-60 transform transition-transform duration-300 ease-in-out 
+        md:relative md:w-60 md:translate-x-0
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
     `;
 
@@ -178,7 +178,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeScreen, setActiveScreen, proces
                 </NavButton>
                 <NavButton active={activeScreen === Screen.Beverages} onClick={() => handleNavClick(Screen.Beverages)}>
                     <Icon name="list" size={20} />
-                    <span>Barra / KDS</span>
+                    <span>Comandas / KDS</span>
                 </NavButton>
                 <NavButton active={activeScreen === Screen.Operations} onClick={() => handleNavClick(Screen.Operations)}>
                     <Icon name="clipboard-kanban" size={20} />

@@ -147,6 +147,7 @@ export interface InventoryItem {
     minStock: number;
     providerPreferido: string;
     purchaseHistory: PurchaseRecord[];
+    isBakeryCritical?: boolean; // Smart tagging for Bakery Dashboard
 }
 
 export interface Provider {
@@ -167,29 +168,56 @@ export interface RecipeFeedback {
     notes: string;
 }
 
-// --- BEVERAGE SYSTEM TYPES ---
+// --- TRACEABILITY & LOGS ---
 
-export type BeverageCategory = 'caliente' | 'frio' | 'metodo' | 'otro';
+export type StockLogType = 'production' | 'purchase' | 'adjustment' | 'waste' | 'consumption';
+
+export interface StockLog {
+    id: string;
+    date: string; // ISO string
+    itemId: string;
+    itemName: string;
+    quantityChange: number; // Positive or negative
+    unit: string;
+    type: StockLogType;
+    responsible: string; // Name of the user
+    reason?: string; // Optional note (e.g. "Pan quemado", "Regalo")
+    recipeName?: string; // If it was a production
+}
+
+// --- BEVERAGE & FOOD SYSTEM TYPES ---
+
+export type BeverageCategory = 'caliente' | 'frio' | 'metodo' | 'comida' | 'otro';
+export type MenuItemType = 'beverage' | 'food'; // To distinguish in KDS
 
 export interface BeverageSize {
     name: string; 
     recipe: string; 
 }
 
+export interface MenuStockConfig {
+    mode: 'none' | 'direct' | 'recipe';
+    directItemId?: string; // Deduct 1 unit of this item
+    ingredients?: RecipeIngredient[]; // Deduct specific quantities of these items
+}
+
 export interface Beverage {
     id: string;
     name: string;
+    type: MenuItemType; // New field
     category: BeverageCategory;
     recipe: string; 
     modifiers?: string[]; 
     hasSizes?: boolean; 
     sizes?: BeverageSize[]; 
+    stockConfig?: MenuStockConfig; // New field for inventory integration
 }
 
 export interface OrderItem {
     id: string; 
     beverageId: string;
     beverageName: string;
+    type: MenuItemType; // Snapshot of type
     sizeName?: string; 
     modifiers: string[];
     notes?: string;
