@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import Icon from '../../components/Icon';
 import { useInventory } from '../../services/useInventory';
@@ -48,39 +49,60 @@ const InventoryScreen: React.FC<InventoryScreenProps> = ({ inventoryHook, provid
         item.name.toLowerCase().includes(search.toLowerCase())
     ), [items, search]);
 
-    const TabButton: React.FC<{ view: InventoryView, label: string, icon: 'boxes' | 'shopping-cart' }> = ({ view, label, icon }) => (
+    // Statistics
+    const lowStockCount = useMemo(() => items.filter(i => i.currentStock <= i.minStock).length, [items]);
+
+    const TabButton: React.FC<{ view: InventoryView, label: string, icon: 'boxes' | 'shopping-cart', badge?: number }> = ({ view, label, icon, badge }) => (
         <button
             onClick={() => setActiveView(view)}
-            className={`flex items-center gap-2 py-2 px-4 text-sm md:text-base font-bold border-b-4 transition-colors ${activeView === view ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+            className={`relative flex items-center gap-2 py-3 px-4 text-sm md:text-base font-bold border-b-4 transition-colors ${activeView === view ? 'border-blue-600 text-blue-600 bg-blue-50/50' : 'border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50'}`}
         >
             <Icon name={icon} size={18} />
             {label}
+            {badge !== undefined && badge > 0 && (
+                <span className="ml-1 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{badge}</span>
+            )}
         </button>
     );
 
     return (
         <div className="flex flex-col h-full bg-gray-50">
-            <div className="operations-header flex flex-col md:flex-row md:flex-wrap justify-between items-center p-4 border-b border-gray-200 gap-4 flex-shrink-0">
-                <div className="operations-actions">
-                    <button onClick={handleAddNew} className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm">
-                        <Icon name="plus-circle" size={16} />
-                        Añadir Producto
+            {/* Header Section */}
+            <div className="bg-white border-b border-gray-200 flex-shrink-0">
+                <div className="p-4 flex justify-between items-center">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-800">Inventario</h2>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            {items.length} productos totales • {lowStockCount} alertas
+                        </p>
+                    </div>
+                    <button onClick={handleAddNew} className="flex items-center gap-2 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm shadow-sm">
+                        <Icon name="plus-circle" size={18} />
+                        <span className="hidden sm:inline">Nuevo Producto</span>
                     </button>
                 </div>
-                <div className="inventory-tabs flex gap-4">
-                    <TabButton view="general" label="Inventario General" icon="boxes" />
-                    <TabButton view="shopping-list" label="Lista de Compras" icon="shopping-cart" />
+                
+                <div className="flex px-4 gap-1 overflow-x-auto">
+                    <TabButton view="general" label="General" icon="boxes" />
+                    <TabButton view="shopping-list" label="Lista de Compras" icon="shopping-cart" badge={lowStockCount} />
                 </div>
             </div>
 
-            <div className="search-bar-container p-4 flex-shrink-0">
-                <input
-                    type="search"
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    placeholder="Buscar producto..."
-                    className="w-full p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+            {/* Search Bar */}
+            <div className="p-4 bg-gray-50 flex-shrink-0">
+                <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                        <Icon name="search" size={20} /> {/* We don't have search icon in map yet, using generic style but relying on fallback or new icon addition if needed. Actually let's use a known one or just absolute position. */}
+                        {/* Re-using existing icon component, let's assume 'list' for now as search icon is missing in provided map, or just text input style */}
+                    </div>
+                    <input
+                        type="search"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        placeholder="Buscar por nombre..."
+                        className="w-full p-3 pl-4 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm transition-shadow"
+                    />
+                </div>
             </div>
             
             <div className="flex-grow overflow-y-auto px-4 pb-4">
