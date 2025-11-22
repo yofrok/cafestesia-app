@@ -114,31 +114,40 @@ const BeverageKDS: React.FC<BeverageKDSProps> = ({ type, inventoryHook }) => {
                                 {order.items
                                     .filter(item => (item.type || 'beverage') === type)
                                     .map((item, idx) => (
-                                    <div key={idx} className="flex items-start gap-2 animate-fadeIn">
-                                        <div className="mt-1">
-                                            <button 
-                                                onClick={() => setRecipeModal({ name: `${item.beverageName} ${item.sizeName ? `(${item.sizeName})` : ''}`, text: item.recipeRef || 'Sin receta disponible.' })}
-                                                className={`p-1 rounded-full transition-colors hover:bg-gray-100 ${iconClass}`}
-                                                title="Ver Instrucción"
-                                            >
-                                                <Icon name="list" size={18} />
-                                            </button>
+                                    <div key={idx} className="flex flex-col gap-1 animate-fadeIn">
+                                        <div className="flex items-start gap-2">
+                                            <div className="mt-1">
+                                                <button 
+                                                    onClick={() => setRecipeModal({ name: `${item.beverageName} ${item.sizeName ? `(${item.sizeName})` : ''}`, text: item.recipeRef || 'Sin receta disponible.' })}
+                                                    className={`p-1 rounded-full transition-colors hover:bg-gray-100 ${iconClass}`}
+                                                    title="Ver Instrucción"
+                                                >
+                                                    <Icon name="list" size={18} />
+                                                </button>
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-gray-800 text-lg leading-tight">
+                                                    {item.beverageName}
+                                                    {item.sizeName && <span className="text-gray-500 ml-1 text-base font-bold">({item.sizeName})</span>}
+                                                </p>
+                                                {item.modifiers.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1 mt-1">
+                                                        {item.modifiers.map((mod, i) => (
+                                                            <span key={i} className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs font-bold border border-gray-200">
+                                                                {mod}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="font-bold text-gray-800 text-lg leading-tight">
-                                                {item.beverageName}
-                                                {item.sizeName && <span className="text-gray-500 ml-1 text-base font-bold">({item.sizeName})</span>}
-                                            </p>
-                                            {item.modifiers.length > 0 && (
-                                                <div className="flex flex-wrap gap-1 mt-1">
-                                                    {item.modifiers.map((mod, i) => (
-                                                        <span key={i} className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs font-bold border border-gray-200">
-                                                            {mod}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
+                                        {/* Custom Note Display */}
+                                        {item.notes && (
+                                            <div className="ml-8 bg-yellow-100 border-l-4 border-yellow-400 p-2 rounded-r text-sm font-bold text-yellow-900 flex items-start gap-2">
+                                                <Icon name="message-square" size={16} className="mt-0.5 flex-shrink-0" />
+                                                <span>{item.notes}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                                 

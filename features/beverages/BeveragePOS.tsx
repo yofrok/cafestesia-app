@@ -1,9 +1,131 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useBeverages } from '../../services/useBeverages';
 import { Beverage, OrderItem, MenuItemType } from '../../types';
 import Icon from '../../components/Icon';
 import Modal from '../../components/Modal';
+
+// --- Sub-component for Swipe-to-Delete Item ---
+interface OrderItemRowProps {
+    item: OrderItem;
+    index: number;
+    onEdit: (index: number) => void;
+    onDelete: (index: number) => void;
+}
+
+const OrderItemRow: React.FC<OrderItemRowProps> = ({ item, index, onEdit, onDelete }) => {
+    const [offsetX, setOffsetX] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
+    const startX = useRef(0);
+    const currentOffsetX = useRef(0);
+
+    // Threshold to trigger delete (pixels)
+    const DELETE_THRESHOLD = -100;
+
+    const onDragStart = (clientX: number) => {
+        startX.current = clientX;
+        setIsDragging(true);
+    };
+
+    const onDragMove = (clientX: number) => {
+        if (!isDragging) return;
+        const diff = clientX - startX.current;
+        
+        // Only allow sliding to the left (negative values)
+        // Limit max slide to -150px for visual constraints
+        if (diff < 0) {
+             const newOffset = Math.max(diff, -150);
+             currentOffsetX.current = newOffset;
+             setOffsetX(newOffset);
+        }
+    };
+
+    const onDragEnd = () => {
+        setIsDragging(false);
+        if (currentOffsetX.current < DELETE_THRESHOLD) {
+            // Swiped far enough -> Delete
+            setOffsetX(-500); // Visual swipe out
+            setTimeout(() => onDelete(index), 200);
+        } else {
+            // Not far enough -> Snap back
+            setOffsetX(0);
+            currentOffsetX.current = 0;
+        }
+    };
+
+    // Touch Events
+    const handleTouchStart = (e: React.TouchEvent) => onDragStart(e.touches[0].clientX);
+    const handleTouchMove = (e: React.TouchEvent) => onDragMove(e.touches[0].clientX);
+    
+    // Mouse Events (for desktop testing)
+    const handleMouseDown = (e: React.MouseEvent) => onDragStart(e.clientX);
+    const handleMouseMove = (e: React.MouseEvent) => isDragging && onDragMove(e.clientX);
+    const handleMouseUp = () => isDragging && onDragEnd();
+    const handleMouseLeave = () => isDragging && onDragEnd();
+
+    return (
+        <div className="relative overflow-hidden mb-2 select-none touch-pan-y">
+            {/* Background Layer (Red/Delete) */}
+            <div className="absolute inset-0 bg-red-500 rounded-lg flex items-center justify-end pr-6">
+                <div className="flex items-center gap-2 text-white font-bold">
+                    <span>Borrar</span>
+                    <Icon name="trash-2" size={20} />
+                </div>
+            </div>
+
+            {/* Foreground Layer (Content) */}
+            <div 
+                className="relative bg-white p-2 border-b border-dashed border-gray-200 flex justify-between items-start transition-transform duration-200 ease-out"
+                style={{ 
+                    transform: `translateX(${offsetX}px)`,
+                    transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+                    cursor: isDragging ? 'grabbing' : 'grab'
+                }}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={onDragEnd}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseLeave}
+            >
+                <div className="flex-1 min-w-0 pr-2">
+                    <p className="font-bold text-gray-800 text-sm md:text-base leading-tight truncate">
+                        {item.beverageName}
+                    </p>
+                    {item.sizeName && <span className="text-amber-700 text-xs md:text-sm block truncate">({item.sizeName})</span>}
+                    
+                    <div className="flex flex-wrap gap-1 items-center mt-1">
+                        <span className={`text-[10px] px-1 rounded ${item.type === 'food' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>
+                            {item.type === 'food' ? 'COCINA' : 'BARRA'}
+                        </span>
+                        {item.notes && (
+                            <span className="text-[10px] px-1 rounded bg-yellow-200 text-yellow-900 font-bold flex items-center gap-1 max-w-full truncate">
+                                <Icon name="pencil" size={8} /> {item.notes}
+                            </span>
+                        )}
+                    </div>
+                    {item.modifiers.length > 0 && (
+                        <p className="text-[10px] md:text-xs text-blue-600 mt-0.5 truncate">{item.modifiers.join(', ')}</p>
+                    )}
+                </div>
+
+                <div className="flex flex-col gap-1 flex-shrink-0 mt-0.5">
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); onEdit(index); }}
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                        title="Editar Nota"
+                        onMouseDown={(e) => e.stopPropagation()} 
+                        onTouchStart={(e) => e.stopPropagation()}
+                    >
+                        <Icon name="pencil" size={18} />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 const BeveragePOS: React.FC = () => {
     const { beverages, createOrder } = useBeverages();
@@ -17,6 +139,10 @@ const BeveragePOS: React.FC = () => {
     
     // State for Size Selection
     const [selectedBeverageForSize, setSelectedBeverageForSize] = useState<Beverage | null>(null);
+
+    // State for Note Editing
+    const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+    const [tempNote, setTempNote] = useState('');
 
     // Filter items by main type (Drink vs Food)
     const typeFilteredItems = useMemo(() => {
@@ -77,6 +203,12 @@ const BeveragePOS: React.FC = () => {
         setCurrentOrderItems(prev => prev.slice(0, -1));
     };
 
+    const removeSpecificItem = (index: number) => {
+        const updated = [...currentOrderItems];
+        updated.splice(index, 1);
+        setCurrentOrderItems(updated);
+    };
+
     const addModifierToLastItem = (mod: string) => {
         if (currentOrderItems.length === 0) return;
         const updated = [...currentOrderItems];
@@ -85,6 +217,21 @@ const BeveragePOS: React.FC = () => {
             lastItem.modifiers.push(mod);
             setCurrentOrderItems(updated);
         }
+    };
+
+    // --- Note Handling ---
+    const openNoteModal = (index: number) => {
+        setEditingItemIndex(index);
+        setTempNote(currentOrderItems[index].notes || '');
+    };
+
+    const saveNote = () => {
+        if (editingItemIndex === null) return;
+        const updated = [...currentOrderItems];
+        updated[editingItemIndex].notes = tempNote.trim();
+        setCurrentOrderItems(updated);
+        setEditingItemIndex(null);
+        setTempNote('');
     };
 
     const handleSendOrder = () => {
@@ -104,7 +251,7 @@ const BeveragePOS: React.FC = () => {
         <div className="flex flex-col h-full md:flex-row overflow-hidden">
             {/* Left: Menu Grid */}
             {/* On mobile, restrict height to 60% to leave room for ticket. On desktop, flex-1 takes available width. */}
-            <div className="h-[60%] md:h-auto md:flex-1 flex flex-col bg-gray-100 border-r border-gray-200">
+            <div className="h-[60%] md:h-auto md:flex-1 flex flex-col bg-gray-100 border-r border-gray-200 min-w-0">
                 
                 {/* Top Level Switcher */}
                 <div className="p-1 md:p-2 bg-white flex gap-2 border-b border-gray-200 flex-shrink-0">
@@ -208,9 +355,9 @@ const BeveragePOS: React.FC = () => {
             </div>
 
             {/* Right: Ticket */}
-            {/* On mobile, takes 40% height. On desktop, fixed width. */}
-            <div className="h-[40%] md:h-auto w-full md:w-80 bg-white flex flex-col flex-shrink-0 border-l border-gray-200 shadow-xl z-10">
-                <div className="p-2 md:p-4 bg-gray-50 border-b border-gray-200">
+            {/* Fixed width w-80. Using flex-col. Critical: overflow-hidden on the container to manage inner scroll */}
+            <div className="h-[40%] md:h-auto w-full md:w-80 bg-white flex flex-col flex-shrink-0 border-l border-gray-200 shadow-xl z-10 overflow-hidden">
+                <div className="p-2 md:p-4 bg-gray-50 border-b border-gray-200 flex-shrink-0">
                     <input 
                         type="text" 
                         value={customerName} 
@@ -220,7 +367,7 @@ const BeveragePOS: React.FC = () => {
                     />
                 </div>
 
-                <div className="flex-grow overflow-y-auto p-2 md:p-4 space-y-2 md:space-y-3">
+                <div className="flex-grow overflow-y-auto p-2 md:p-4 custom-scrollbar">
                     {currentOrderItems.length === 0 ? (
                         <div className="text-center text-gray-400 mt-6 md:mt-10">
                             <Icon name="shopping-cart" size={32} className="mx-auto mb-2 opacity-20" />
@@ -228,31 +375,25 @@ const BeveragePOS: React.FC = () => {
                         </div>
                     ) : (
                         currentOrderItems.map((item, idx) => (
-                            <div key={idx} className={`flex justify-between items-start pb-1 md:pb-2 border-b border-dashed border-gray-200 ${idx === currentOrderItems.length - 1 ? 'opacity-100' : 'opacity-70'}`}>
-                                <div>
-                                    <p className="font-bold text-gray-800 text-sm md:text-base">
-                                        {item.beverageName}
-                                        {item.sizeName && <span className="text-amber-700 ml-1 text-xs md:text-sm">({item.sizeName})</span>}
-                                    </p>
-                                    <span className={`text-[10px] px-1 rounded ${item.type === 'food' ? 'bg-orange-100 text-orange-800' : 'bg-blue-100 text-blue-800'}`}>
-                                        {item.type === 'food' ? 'COCINA' : 'BARRA'}
-                                    </span>
-                                    {item.modifiers.length > 0 && (
-                                        <p className="text-[10px] md:text-xs text-blue-600 mt-0.5">{item.modifiers.join(', ')}</p>
-                                    )}
-                                </div>
-                            </div>
+                            <OrderItemRow 
+                                key={`${item.id}-${idx}`} 
+                                item={item} 
+                                index={idx} 
+                                onEdit={openNoteModal} 
+                                onDelete={removeSpecificItem} 
+                            />
                         ))
                     )}
                 </div>
 
-                <div className="p-2 md:p-4 bg-gray-50 border-t border-gray-200 grid grid-cols-2 gap-2 md:gap-3">
+                <div className="p-2 md:p-4 bg-gray-50 border-t border-gray-200 grid grid-cols-2 gap-2 md:gap-3 flex-shrink-0">
                     <button 
                         onClick={removeLastItem}
                         disabled={currentOrderItems.length === 0}
-                        className="py-2 md:py-3 bg-gray-200 text-gray-600 font-bold rounded-lg disabled:opacity-50 flex items-center justify-center"
+                        className="py-2 md:py-3 bg-gray-200 text-gray-600 font-bold rounded-lg disabled:opacity-50 flex items-center justify-center text-xs md:text-sm"
                     >
-                        <Icon name="rotate-ccw" className="mx-auto" size={18} />
+                        <Icon name="rotate-ccw" className="mr-1" size={16} />
+                        Deshacer
                     </button>
                     <button 
                         onClick={handleSendOrder}
@@ -284,6 +425,39 @@ const BeveragePOS: React.FC = () => {
                         >
                             Cancelar
                         </button>
+                    </div>
+                </Modal>
+            )}
+
+            {/* Note Modal */}
+            {editingItemIndex !== null && (
+                <Modal isOpen={editingItemIndex !== null} onClose={() => setEditingItemIndex(null)} title="Nota para cocina/barra">
+                    <div className="flex flex-col gap-4">
+                        <p className="text-sm text-gray-600">
+                            Agrega detalles especiales para: <span className="font-bold">{currentOrderItems[editingItemIndex].beverageName}</span>
+                        </p>
+                        <input
+                            type="text"
+                            value={tempNote}
+                            onChange={(e) => setTempNote(e.target.value)}
+                            placeholder="Ej: Sin cebolla, leche deslactosada, extra caliente..."
+                            autoFocus
+                            className="w-full p-3 border border-gray-300 rounded-lg text-lg"
+                        />
+                        <div className="flex gap-3 mt-2">
+                            <button 
+                                onClick={() => setEditingItemIndex(null)} 
+                                className="flex-1 py-3 bg-gray-100 text-gray-700 font-bold rounded-lg"
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                                onClick={saveNote} 
+                                className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700"
+                            >
+                                Guardar Nota
+                            </button>
+                        </div>
                     </div>
                 </Modal>
             )}
