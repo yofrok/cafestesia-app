@@ -1,11 +1,12 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useBeverages } from '../../services/useBeverages';
 import { useInventory } from '../../services/useInventory';
 import Icon from '../../components/Icon';
 import Modal from '../../components/Modal';
 import SwipeButton from '../../components/SwipeButton';
 import { MenuItemType, BeverageOrder } from '../../types';
+import { useProductionAlerts } from '../baking/useProductionAlerts';
 
 const OrderTimer: React.FC<{ timestamp: number }> = ({ timestamp }) => {
     const [elapsed, setElapsed] = useState(0);
@@ -37,6 +38,11 @@ const BeverageKDS: React.FC<BeverageKDSProps> = ({ type, inventoryHook }) => {
     const { activeOrders, completeOrder, cancelOrder, beverages } = useBeverages();
     const { recordStockChange } = inventoryHook;
     const [recipeModal, setRecipeModal] = useState<{ name: string, text: string } | null>(null);
+    
+    // Audio Alert Logic
+    const { playNotification } = useProductionAlerts();
+    const prevOrderCountRef = useRef<number>(0);
+    const isFirstRun = useRef(true);
 
     // Filter orders that contain at least one item of the requested type
     const filteredOrders = useMemo(() => {
@@ -48,6 +54,21 @@ const BeverageKDS: React.FC<BeverageKDSProps> = ({ type, inventoryHook }) => {
             })
         );
     }, [activeOrders, type]);
+
+    // Effect to play sound on new orders
+    useEffect(() => {
+        if (isFirstRun.current) {
+            isFirstRun.current = false;
+            prevOrderCountRef.current = filteredOrders.length;
+            return;
+        }
+
+        if (filteredOrders.length > prevOrderCountRef.current) {
+            playNotification();
+        }
+        
+        prevOrderCountRef.current = filteredOrders.length;
+    }, [filteredOrders.length, playNotification]);
 
     const handleComplete = (order: BeverageOrder) => {
         // 1. Trigger Inventory Deduction for items of THIS type in the order
@@ -101,7 +122,7 @@ const BeverageKDS: React.FC<BeverageKDSProps> = ({ type, inventoryHook }) => {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {filteredOrders.map(order => (
-                        <div key={order.id} className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col">
+                        <div key={order.id} className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col animate-fadeIn">
                             <div className={`p-3 border-b flex justify-between items-center ${themeClass}`}>
                                 <div>
                                     <h3 className="font-bold text-lg truncate max-w-[150px] text-gray-800">{order.customerName}</h3>
@@ -114,7 +135,7 @@ const BeverageKDS: React.FC<BeverageKDSProps> = ({ type, inventoryHook }) => {
                                 {order.items
                                     .filter(item => (item.type || 'beverage') === type)
                                     .map((item, idx) => (
-                                    <div key={idx} className="flex flex-col gap-1 animate-fadeIn">
+                                    <div key={idx} className="flex flex-col gap-1">
                                         <div className="flex items-start gap-2">
                                             <div className="mt-1">
                                                 <button 
