@@ -3,10 +3,25 @@ import { useState, useEffect } from 'react';
 import { InventoryItem, PurchaseRecord, Recipe, StockLog, StockLogType } from '../types';
 import { MOCK_INVENTORY_ITEMS } from '../constants';
 import { db } from './firebase';
-import * as firestore from 'firebase/firestore';
+import { 
+    collection, 
+    query, 
+    orderBy, 
+    limit, 
+    onSnapshot, 
+    addDoc, 
+    doc, 
+    updateDoc, 
+    deleteDoc, 
+    writeBatch, 
+    increment, 
+    arrayUnion, 
+    QuerySnapshot,
+    WriteBatch 
+} from 'firebase/firestore';
 
-const inventoryCollectionRef = firestore.collection(db, 'inventory');
-const stockLogsCollectionRef = firestore.collection(db, 'stock_logs');
+const inventoryCollectionRef = collection(db, 'inventory');
+const stockLogsCollectionRef = collection(db, 'stock_logs');
 
 interface StockChangeDetails {
     itemId: string;
@@ -21,9 +36,9 @@ interface StockChangeDetails {
 
 const seedInitialData = async () => {
     console.log("Seeding initial inventory to Firestore...");
-    const batch = firestore.writeBatch(db);
+    const batch = writeBatch(db);
     MOCK_INVENTORY_ITEMS.forEach(item => {
-        const newDocRef = firestore.doc(inventoryCollectionRef);
+        const newDocRef = doc(inventoryCollectionRef);
         batch.set(newDocRef, { ...item, purchaseHistory: [] });
     });
     await batch.commit();
@@ -36,8 +51,8 @@ export const useInventory = () => {
 
     // Sync Inventory Items
     useEffect(() => {
-        const q = firestore.query(inventoryCollectionRef, firestore.orderBy("name"));
-        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
+        const q = query(inventoryCollectionRef, orderBy("name"));
+        const unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot) => {
              if (snapshot.empty && MOCK_INVENTORY_ITEMS.length > 0) {
                 seedInitialData();
                 return;
@@ -55,8 +70,8 @@ export const useInventory = () => {
 
     // Sync Stock Logs (Limited to last 100 for performance, ordered by date descending)
     useEffect(() => {
-        const q = firestore.query(stockLogsCollectionRef, firestore.orderBy("date", "desc"), firestore.limit(100));
-        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
+        const q = query(stockLogsCollectionRef, orderBy("date", "desc"), limit(100));
+        const unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot) => {
             const logsData = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data(),
@@ -70,7 +85,7 @@ export const useInventory = () => {
 
     const addItem = async (itemData: Omit<InventoryItem, 'id' | 'purchaseHistory'>) => {
         try {
-            await firestore.addDoc(inventoryCollectionRef, { ...itemData, purchaseHistory: [] });
+            await addDoc(inventoryCollectionRef, { ...itemData, purchaseHistory: [] });
         } catch (error) {
             console.error("Error adding inventory item:", error);
         }
@@ -78,25 +93,25 @@ export const useInventory = () => {
 
     const updateItem = async (itemData: InventoryItem) => {
         const { id, ...data } = itemData;
-        const itemRef = firestore.doc(db, 'inventory', id);
+        const itemRef = doc(db, 'inventory', id);
         try {
-            await firestore.updateDoc(itemRef, data);
+            await updateDoc(itemRef, data);
         } catch (error) {
             console.error("Error updating item:", error);
         }
     };
 
     const deleteItem = async (itemId: string) => {
-        const itemRef = firestore.doc(db, 'inventory', itemId);
+        const itemRef = doc(db, 'inventory', itemId);
         try {
-            await firestore.deleteDoc(itemRef);
+            await deleteDoc(itemRef);
         } catch (error) {
             console.error("Error deleting item:", error);
         }
     };
 
-    const createLog = (batch: firestore.WriteBatch, item: InventoryItem, change: number, type: StockLogType, responsible: string, reason?: string, recipeName?: string) => {
-        const newLogRef = firestore.doc(stockLogsCollectionRef);
+    const createLog = (batch: WriteBatch, item: InventoryItem, change: number, type: StockLogType, responsible: string, reason?: string, recipeName?: string) => {
+        const newLogRef = doc(stockLogsCollectionRef);
         const log: StockLog = {
             id: newLogRef.id, // Placeholder, strictly not needed in firestore doc data but good for type consistency
             date: new Date().toISOString(),
@@ -120,13 +135,13 @@ export const useInventory = () => {
         const item = items.find(i => i.id === itemId);
         if (!item) return;
 
-        const itemRef = firestore.doc(db, 'inventory', itemId);
-        const batch = firestore.writeBatch(db);
+        const itemRef = doc(db, 'inventory', itemId);
+        const batch = writeBatch(db);
 
         try {
             // 1. Update Item Stock
             const updatePayload: { [key: string]: any } = {
-                currentStock: firestore.increment(change)
+                currentStock: increment(change)
             };
 
             let logType: StockLogType = 'adjustment';
@@ -140,7 +155,7 @@ export const useInventory = () => {
                     totalPrice: purchaseDetails.totalPrice,
                     providerName: purchaseDetails.providerName,
                 };
-                updatePayload.purchaseHistory = firestore.arrayUnion(newPurchase);
+                updatePayload.purchaseHistory = arrayUnion(newPurchase);
             } else if (change < 0 && reason?.toLowerCase().includes('merma')) {
                 logType = 'waste';
             }
@@ -158,7 +173,7 @@ export const useInventory = () => {
     };
 
     const produceBatch = async (recipe: Recipe, multiplier: number, customOutputQuantity: number, responsible: string) => {
-        const batch = firestore.writeBatch(db);
+        const batch = writeBatch(db);
         let hasUpdates = false;
 
         // 1. Deduct Ingredients
@@ -167,10 +182,10 @@ export const useInventory = () => {
                 const item = items.find(i => i.id === ingredient.inventoryItemId);
                 if (item) {
                     const amountToDeduct = ingredient.quantity * multiplier;
-                    const itemRef = firestore.doc(db, 'inventory', item.id);
+                    const itemRef = doc(db, 'inventory', item.id);
                     
                     // Update Stock
-                    batch.update(itemRef, { currentStock: firestore.increment(-amountToDeduct) });
+                    batch.update(itemRef, { currentStock: increment(-amountToDeduct) });
                     
                     // Log Consumption
                     createLog(batch, item, -amountToDeduct, 'consumption', responsible, `Producción de ${recipe.name}`, recipe.name);
@@ -186,10 +201,10 @@ export const useInventory = () => {
             const amountToAdd = customOutputQuantity; // We trust the passed quantity from the modal
 
             if (outputItem && amountToAdd > 0) {
-                const outputRef = firestore.doc(db, 'inventory', outputItem.id);
+                const outputRef = doc(db, 'inventory', outputItem.id);
                 
                 // Update Stock
-                batch.update(outputRef, { currentStock: firestore.increment(amountToAdd) });
+                batch.update(outputRef, { currentStock: increment(amountToAdd) });
                 
                 // Log Production
                 createLog(batch, outputItem, amountToAdd, 'production', responsible, `Lote finalizado`, recipe.name);

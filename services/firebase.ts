@@ -1,6 +1,7 @@
+
 import { initializeApp } from 'firebase/app';
-// FIX: Use namespace import for firestore to fix module resolution issues.
-import * as firestore from 'firebase/firestore';
+// FIX: Use named imports for modular SDK
+import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: "AIzaSyB6-Z_XRfCHWQ3ujGzkj4ck1WtI9gX6O_k",
@@ -17,4 +18,4 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // Get a reference to the database service using the v9 modular API
-export const db = firestore.getFirestore(app);
+export const db = getFirestore(app);

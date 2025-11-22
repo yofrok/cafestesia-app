@@ -2,16 +2,26 @@
 import { useState, useEffect } from 'react';
 import { TaskTemplate } from '../types';
 import { db } from './firebase';
-import * as firestore from 'firebase/firestore';
+import { 
+    collection, 
+    query, 
+    orderBy, 
+    onSnapshot, 
+    addDoc, 
+    doc, 
+    updateDoc, 
+    deleteDoc,
+    QuerySnapshot
+} from 'firebase/firestore';
 
-const templatesCollectionRef = firestore.collection(db, 'task_templates');
+const templatesCollectionRef = collection(db, 'task_templates');
 
 export const useRoutines = () => {
     const [routines, setRoutines] = useState<TaskTemplate[]>([]);
 
     useEffect(() => {
-        const q = firestore.query(templatesCollectionRef, firestore.orderBy("title"));
-        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
+        const q = query(templatesCollectionRef, orderBy("title"));
+        const unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot) => {
             const data = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
@@ -26,7 +36,7 @@ export const useRoutines = () => {
 
     const addRoutine = async (routineData: Omit<TaskTemplate, 'id'>) => {
         try {
-            await firestore.addDoc(templatesCollectionRef, routineData);
+            await addDoc(templatesCollectionRef, routineData);
         } catch (error) {
             console.error("Error adding routine:", error);
         }
@@ -34,18 +44,18 @@ export const useRoutines = () => {
 
     const updateRoutine = async (routineData: TaskTemplate) => {
         const { id, ...data } = routineData;
-        const ref = firestore.doc(db, 'task_templates', id);
+        const ref = doc(db, 'task_templates', id);
         try {
-            await firestore.updateDoc(ref, data);
+            await updateDoc(ref, data);
         } catch (error) {
             console.error("Error updating routine:", error);
         }
     };
 
     const deleteRoutine = async (id: string) => {
-        const ref = firestore.doc(db, 'task_templates', id);
+        const ref = doc(db, 'task_templates', id);
         try {
-            await firestore.deleteDoc(ref);
+            await deleteDoc(ref);
         } catch (error) {
             console.error("Error deleting routine:", error);
         }

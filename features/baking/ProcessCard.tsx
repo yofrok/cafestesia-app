@@ -17,8 +17,15 @@ interface ProcessCardProps {
 
 const formatTime = (seconds: number) => {
     if (isNaN(seconds) || seconds < 0) seconds = 0;
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+
+    if (h > 0) {
+        // If > 1 hour, show hours and minutes only (e.g., "2h 15m")
+        return `${h}h ${String(m).padStart(2, '0')}m`;
+    }
+    // If < 1 hour, show minutes and seconds (e.g., "45:30")
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 };
 
@@ -67,10 +74,6 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPreviou
     const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
     const [isConfirmingPrevious, setIsConfirmingPrevious] = useState(false);
     
-    // Used for visual feedback only, actual logging happens via parent modal
-    // We can track if it was logged via props or local state if we passed that info down, 
-    // but for simplicity, the button will just trigger the modal.
-
     const currentStep = steps[currentStepIndex];
     const isPassive = currentStep?.type === 'passive';
     const isPausedState = state === 'paused' || state === 'intermission';
@@ -193,6 +196,18 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPreviou
 
         const canGoBack = currentStepIndex > 0;
         const isPaused = state === 'paused' || state === 'intermission';
+        
+        // Logic to determine button text
+        let mainButtonText = 'PAUSAR';
+        if (isPaused) {
+            if (state === 'intermission') {
+                mainButtonText = 'INICIAR SIGUIENTE';
+            } else if (currentStepIndex === 0 && stepTimeLeft === currentStep.duration) {
+                mainButtonText = 'INICIAR PROCESO';
+            } else {
+                mainButtonText = 'REANUDAR';
+            }
+        }
 
         return (
             <div className="flex flex-col gap-3">
@@ -215,7 +230,7 @@ const ProcessCard: React.FC<ProcessCardProps> = ({ process, onAdvance, onPreviou
                         }`}
                     >
                         <Icon name={isPaused ? "play-circle" : "minus"} size={20} />
-                        {isPaused ? (state === 'intermission' ? 'INICIAR SIGUIENTE' : 'REANUDAR') : 'PAUSAR'}
+                        {mainButtonText}
                     </button>
                 </div>
                 

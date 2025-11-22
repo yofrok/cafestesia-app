@@ -3,9 +3,18 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ProductionProcess, Recipe, RecipeStep } from '../../types';
 import { useProductionAlerts } from './useProductionAlerts';
 import { db } from '../../services/firebase';
-import * as firestore from 'firebase/firestore';
+import { 
+    collection, 
+    query, 
+    onSnapshot, 
+    addDoc, 
+    doc, 
+    updateDoc, 
+    deleteDoc,
+    QuerySnapshot 
+} from 'firebase/firestore';
 
-const processesCollectionRef = firestore.collection(db, 'production_processes');
+const processesCollectionRef = collection(db, 'production_processes');
 
 // Helper to apply variant overrides to base recipe steps
 const getStepsForVariant = (recipe: Recipe, variantId?: string): RecipeStep[] => {
@@ -50,12 +59,12 @@ export const useProduction = () => {
 
     // --- Firestore Real-time Listener ---
     useEffect(() => {
-        // Order by start time so the list doesn't jump around
-        const q = firestore.query(processesCollectionRef, firestore.orderBy("lastTickTimestamp", "asc")); 
+        // We query without sorting by lastTickTimestamp to avoid jumping.
+        // Sorting is done client-side based on creation time (startedAt).
+        const q = query(processesCollectionRef); 
         
-        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
+        const unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot) => {
             const processesData = snapshot.docs.map(doc => {
-                // Cast to Omit<ProductionProcess, 'id'> to avoid TS warning about overwriting 'id' in the spread below
                 const data = doc.data() as Omit<ProductionProcess, 'id'>;
                 return {
                     id: doc.id,
@@ -65,8 +74,17 @@ export const useProduction = () => {
                     _baseStepTimeLeft: data.stepTimeLeft,
                     _baseTotalTimeLeft: data.totalTimeLeft
                 };
+            }) as (ProductionProcess & { _baseStepTimeLeft?: number; _baseTotalTimeLeft?: number })[];
+
+            // Client-side Stable Sort: Sort by startedAt (creation time)
+            // This ensures items don't jump around when interacted with (unlike lastTickTimestamp)
+            processesData.sort((a, b) => {
+                const startA = a.startedAt || a.lastTickTimestamp || 0;
+                const startB = b.startedAt || b.lastTickTimestamp || 0;
+                return startA - startB;
             });
-            setProcesses(processesData as (ProductionProcess & { _baseStepTimeLeft?: number; _baseTotalTimeLeft?: number })[]);
+
+            setProcesses(processesData);
         }, (error) => {
             console.error("Error syncing production processes:", error);
         });
@@ -83,8 +101,6 @@ export const useProduction = () => {
     }, []);
 
     // --- The Local Ticker ---
-    // This updates the UI every second based on the server's data.
-    // It calculates "Real Time" elapsed since the last server update.
     const tick = useCallback(() => {
         setProcesses(prevProcesses => {
             const now = Date.now();
@@ -93,14 +109,11 @@ export const useProduction = () => {
             const updatedProcesses = prevProcesses.map(p => {
                 if (p.state !== 'running') return p;
                 
-                // Use the preserved base time if available, otherwise fallback to current (first tick)
                 const baseStep = p._baseStepTimeLeft ?? p.stepTimeLeft;
                 const baseTotal = p._baseTotalTimeLeft ?? p.totalTimeLeft;
 
-                // We calculate elapsed time locally relative to when the process was last "touched" (started/resumed)
                 const elapsedSeconds = Math.round((now - p.lastTickTimestamp) / 1000);
                 
-                // Calculate new display values from the BASE, not the previous decremented value.
                 const currentStepTimeLeft = Math.max(0, baseStep - elapsedSeconds);
                 const currentTotalTimeLeft = Math.max(0, baseTotal - elapsedSeconds);
 
@@ -108,7 +121,6 @@ export const useProduction = () => {
 
                 // --- Precise 30-Second Warning Logic ---
                 const warningKey = `${p.id}-${p.currentStepIndex}`;
-                // Use a slightly wider window for detection to ensure we catch it between ticks
                 if (currentStepTimeLeft <= 30 && currentStepTimeLeft > 28 && !playedWarningsRef.current.has(warningKey)) {
                     playWarning();
                     setTimeout(() => playWarning(), 700);
@@ -118,12 +130,10 @@ export const useProduction = () => {
                 
                 // --- Alarm Trigger (Write to DB) ---
                 if (currentStepTimeLeft === 0) {
-                    // Prevent multiple writes
                     if (p.state === 'running') { 
                         playAlarmLoop();
-                        // Update Firestore! This stops the timer on all devices.
-                        const processRef = firestore.doc(db, 'production_processes', p.id);
-                        firestore.updateDoc(processRef, {
+                        const processRef = doc(db, 'production_processes', p.id);
+                        updateDoc(processRef, {
                             state: 'alarm',
                             stepTimeLeft: 0,
                             totalTimeLeft: currentTotalTimeLeft,
@@ -139,12 +149,10 @@ export const useProduction = () => {
                     };
                 }
                 
-                // Update local display state
                 return {
                     ...p,
                     stepTimeLeft: currentStepTimeLeft, 
                     totalTimeLeft: currentTotalTimeLeft,
-                    // Preserve the base!
                     _baseStepTimeLeft: baseStep,
                     _baseTotalTimeLeft: baseTotal
                 };
@@ -160,8 +168,6 @@ export const useProduction = () => {
         timerRef.current = window.setInterval(tick, 1000);
     }, [stopTimer, tick]);
 
-    // Derived state for the effect dependency
-    // This boolean is stable (true/false) unlike the 'processes' array which changes ref every tick
     const isAnyProcessRunning = processes.some(p => p.state === 'running');
 
     useEffect(() => {
@@ -200,9 +206,6 @@ export const useProduction = () => {
         const variant = recipe.variants?.find(v => v.id === variantId);
         const processName = variant ? `${recipe.name} (${variant.name})` : recipe.name;
 
-        // CRITICAL FIX: Sanitize the recipe object to remove any 'undefined' values.
-        // Firestore will reject the document if it contains undefined.
-        // JSON.stringify/parse is a quick way to strip undefined fields.
         const sanitizedRecipe = JSON.parse(JSON.stringify(recipe));
 
         const newProcess: Omit<ProductionProcess, 'id'> = {
@@ -217,12 +220,12 @@ export const useProduction = () => {
             totalTimeLeft: totalDuration,
             stepTimeLeft: processSteps[0].duration,
             lastTickTimestamp: Date.now(),
-            // Only add variantId if it is defined
+            startedAt: Date.now(), // Add creation time for stable sorting
             ...(variantId ? { variantId } : {})
         };
         
         try {
-            await firestore.addDoc(processesCollectionRef, newProcess);
+            await addDoc(processesCollectionRef, newProcess);
         } catch (e) {
             console.error("Error starting baking process:", e);
         }
@@ -240,9 +243,10 @@ export const useProduction = () => {
              totalTimeLeft: duration,
              stepTimeLeft: duration,
              lastTickTimestamp: Date.now(),
+             startedAt: Date.now(), // Add creation time
         };
         try {
-            await firestore.addDoc(processesCollectionRef, newProcess);
+            await addDoc(processesCollectionRef, newProcess);
         } catch (e) {
             console.error("Error starting heating process:", e);
         }
@@ -253,7 +257,7 @@ export const useProduction = () => {
         const process = processes.find(p => p.id === processId);
         if (!process) return;
 
-        const processRef = firestore.doc(db, 'production_processes', processId);
+        const processRef = doc(db, 'production_processes', processId);
         const updates: Partial<ProductionProcess> = { lastTickTimestamp: Date.now() };
 
         if (process.state === 'finished') {
@@ -265,6 +269,8 @@ export const useProduction = () => {
             updates.state = 'intermission';
             updates.currentStepIndex = nextStepIndex;
             updates.stepTimeLeft = nextStep.duration;
+            
+            // Removed playStart() from here - it should only play when clicking "Iniciar Siguiente"
         } else {
             playSuccess();
             updates.state = 'finished';
@@ -272,7 +278,7 @@ export const useProduction = () => {
         }
 
         try {
-            await firestore.updateDoc(processRef, updates);
+            await updateDoc(processRef, updates);
         } catch (e) {
             console.error("Error advancing process:", e);
         }
@@ -287,9 +293,9 @@ export const useProduction = () => {
             const prevStepIndex = process.currentStepIndex - 1;
             const prevStep = process.steps[prevStepIndex];
             
-            const processRef = firestore.doc(db, 'production_processes', processId);
+            const processRef = doc(db, 'production_processes', processId);
             try {
-                await firestore.updateDoc(processRef, {
+                await updateDoc(processRef, {
                     state: 'paused',
                     currentStepIndex: prevStepIndex,
                     stepTimeLeft: prevStep.duration,
@@ -307,16 +313,13 @@ export const useProduction = () => {
             return;
         }
 
-        const processRef = firestore.doc(db, 'production_processes', processId);
+        const processRef = doc(db, 'production_processes', processId);
 
         if (process.state === 'running') {
-            // PAUSING:
-            // We save the current visual state to DB so it acts as a checkpoint.
-            // This stops the server-side clock effectively.
+            // PAUSING
             const now = Date.now();
-            
             try {
-                await firestore.updateDoc(processRef, {
+                await updateDoc(processRef, {
                     state: 'paused',
                     stepTimeLeft: process.stepTimeLeft, 
                     totalTimeLeft: process.totalTimeLeft,
@@ -325,19 +328,28 @@ export const useProduction = () => {
             } catch(e) { console.error(e); }
 
         } else {
-            // RESUMING
+            // STARTING / RESUMING / STARTING NEXT
             if (isSuspended) {
                 pendingStartProcessId.current = processId;
                 unlockAudio();
             } 
             
-            const isFirstStart = process.state === 'paused' && process.totalTimeLeft === process.totalTime;
-            if (isFirstStart) playStart();
+            // Logic for playing 'Start' sound:
+            // 1. First start of the entire process (index 0, time not elapsed)
+            const isFirstStart = process.currentStepIndex === 0 && process.stepTimeLeft === process.steps[0].duration;
+            
+            // 2. Starting the next step (state was intermission)
+            const isNextStepStart = process.state === 'intermission';
+
+            // Only play start sound in these cases (not when just unpausing mid-step)
+            if (isFirstStart || isNextStepStart) {
+                playStart();
+            }
 
             try {
-                await firestore.updateDoc(processRef, {
+                await updateDoc(processRef, {
                     state: 'running',
-                    lastTickTimestamp: Date.now() // This sets the anchor for all devices
+                    lastTickTimestamp: Date.now()
                 });
             } catch(e) { console.error(e); }
         }
@@ -345,9 +357,9 @@ export const useProduction = () => {
 
     const cancelProcess = useCallback(async (processId: string) => {
         stopAlarmLoop();
-        const processRef = firestore.doc(db, 'production_processes', processId);
+        const processRef = doc(db, 'production_processes', processId);
         try {
-            await firestore.deleteDoc(processRef);
+            await deleteDoc(processRef);
         } catch (e) {
             console.error("Error deleting process:", e);
         }

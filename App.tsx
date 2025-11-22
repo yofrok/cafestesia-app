@@ -145,7 +145,12 @@ const App: React.FC = () => {
             case Screen.Baking:
                 return <BreadProductionScreen productionHook={productionHook} recipeLogHook={recipeLogHook} recipesHook={recipesHook} inventoryHook={inventoryHook} categoriesHook={categoriesHook} />;
             case Screen.Beverages:
-                return <BeveragesScreen inventoryHook={inventoryHook} />;
+                return <BeveragesScreen 
+                            inventoryHook={inventoryHook} 
+                            recipesHook={recipesHook} 
+                            usersHook={usersHook} 
+                            onToggleSidebar={() => setIsMobileSidebarOpen(true)} 
+                        />;
             case Screen.Operations:
                 return <OperationsScreen 
                             kanbanHook={kanbanHook} 
@@ -165,27 +170,36 @@ const App: React.FC = () => {
         }
     };
 
+    // Zen Mode Logic: Hide the static sidebar if we are on the Beverages screen
+    const isZenMode = activeScreen === Screen.Beverages;
+
     return (
         <div className="h-screen w-screen bg-gray-100">
             <div className="flex h-full w-full max-w-7xl mx-auto bg-gray-50 text-gray-800">
-                <div className="hidden md:flex md:flex-shrink-0">
-                    <Sidebar
-                        activeScreen={activeScreen}
-                        setActiveScreen={setActiveScreen}
-                        processes={processes.filter(p => p.state !== 'finished')}
-                        urgentTasks={criticalAndUpcomingTasks}
-                        shoppingListItems={shoppingListItems}
-                        inProgressTasks={inProgressTasks}
-                        isOpen={true} // Always open on desktop
-                        onClose={() => {}} // No-op on desktop
-                        users={usersHook.users}
-                        onNavigateToTask={handleNavigateToTask}
-                        setOperationsDate={setOperationsDate}
-                        setHighlightedTaskId={setHighlightedTaskId}
-                    />
-                </div>
+                
+                {/* Static Sidebar: Visible only on Desktop AND NOT in Zen Mode */}
+                {!isZenMode && (
+                    <div className="hidden md:flex md:flex-shrink-0">
+                        <Sidebar
+                            activeScreen={activeScreen}
+                            setActiveScreen={setActiveScreen}
+                            processes={processes.filter(p => p.state !== 'finished')}
+                            urgentTasks={criticalAndUpcomingTasks}
+                            shoppingListItems={shoppingListItems}
+                            inProgressTasks={inProgressTasks}
+                            isOpen={true} // Always open on desktop static
+                            onClose={() => {}} 
+                            users={usersHook.users}
+                            onNavigateToTask={handleNavigateToTask}
+                            setOperationsDate={setOperationsDate}
+                            setHighlightedTaskId={setHighlightedTaskId}
+                        />
+                    </div>
+                )}
 
-                <div className="md:hidden">
+                {/* Overlay Sidebar: Visible on Mobile OR Zen Mode Desktop */}
+                {/* If Zen Mode is active, we remove md:hidden so this overlay logic works on desktop too */}
+                <div className={`${!isZenMode ? 'md:hidden' : ''}`}>
                      {isMobileSidebarOpen && (
                         <div 
                             className="fixed inset-0 bg-black/50 z-40" 
@@ -210,7 +224,8 @@ const App: React.FC = () => {
                 </div>
                 
                 <main className="flex-1 flex flex-col relative overflow-hidden">
-                    <header className="md:hidden bg-white border-b border-gray-200 p-4 flex justify-start items-center gap-4">
+                    {/* Mobile Header (Hidden on Desktop unless in Zen Mode - but BeveragesScreen has its own button) */}
+                    <header className={`md:hidden bg-white border-b border-gray-200 p-4 flex justify-start items-center gap-4 ${isZenMode ? 'hidden' : ''}`}>
                         <button onClick={() => setIsMobileSidebarOpen(true)}>
                             <Icon name="menu" size={24} />
                         </button>

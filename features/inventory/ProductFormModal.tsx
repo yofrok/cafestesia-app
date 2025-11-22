@@ -22,6 +22,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, on
     const [unit, setUnit] = useState(INVENTORY_UNITS[0]);
     const [minStock, setMinStock] = useState('0');
     const [isBakeryCritical, setIsBakeryCritical] = useState(false);
+    const [kitchenStation, setKitchenStation] = useState<'market' | 'prep' | 'pantry' | undefined>(undefined);
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -33,6 +34,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, on
             setUnit(item?.unit || INVENTORY_UNITS[0]);
             setMinStock(String(item?.minStock || 0));
             setIsBakeryCritical(item?.isBakeryCritical || false);
+            setKitchenStation(item?.kitchenStation);
             setError('');
         }
     }, [isOpen, item, categories]);
@@ -57,6 +59,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, on
             unit: unit.trim(),
             minStock: minStockNum,
             isBakeryCritical: isBakeryCritical,
+            kitchenStation: kitchenStation,
         };
 
         if (item) {
@@ -76,7 +79,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, on
     
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={item ? "Editar Producto" : "Añadir Producto"}>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 max-h-[80vh] overflow-y-auto pr-2">
                 <FormGroup label="Nombre del Producto">
                     <input type="text" value={name} onChange={e => setName(e.target.value)} required />
                 </FormGroup>
@@ -112,15 +115,58 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, on
                     <input type="number" value={minStock} onChange={e => setMinStock(e.target.value)} step="any" min="0" required />
                 </FormGroup>
 
-                <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-200 flex items-center justify-between">
-                    <div>
-                        <span className="block text-sm font-bold text-emerald-800">Insumo Crítico de Panadería</span>
-                        <span className="text-xs text-emerald-600">Aparecerá en la columna "Insumos" del tablero de panadería.</span>
+                <div className="space-y-3">
+                    <h4 className="font-bold text-gray-700 text-sm border-b pb-1">Configuración de Tableros</h4>
+                    
+                    {/* Bakery Toggle */}
+                    <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-200 flex items-center justify-between">
+                        <div>
+                            <span className="block text-sm font-bold text-emerald-800">Insumo Crítico de Panadería</span>
+                            <span className="text-xs text-emerald-600">Visible en Tablero Panadería</span>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" className="sr-only peer" checked={isBakeryCritical} onChange={e => setIsBakeryCritical(e.target.checked)} />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                        </label>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" checked={isBakeryCritical} onChange={e => setIsBakeryCritical(e.target.checked)} />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-                    </label>
+
+                    {/* Kitchen Station Selector */}
+                    <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
+                        <div className="mb-2">
+                            <span className="block text-sm font-bold text-orange-800">Estación de Cocina</span>
+                            <span className="text-xs text-orange-600">Define dónde aparecerá en el Tablero de Cocina</span>
+                        </div>
+                        <div className="flex gap-2">
+                            <button 
+                                type="button" 
+                                onClick={() => setKitchenStation(undefined)}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded border transition-colors ${!kitchenStation ? 'bg-white border-gray-400 text-gray-700 shadow-sm' : 'border-transparent text-gray-400 hover:bg-orange-100'}`}
+                            >
+                                Ninguna
+                            </button>
+                            <button 
+                                type="button" 
+                                onClick={() => setKitchenStation('market')}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded border transition-colors ${kitchenStation === 'market' ? 'bg-white border-green-500 text-green-700 shadow-sm' : 'border-transparent text-gray-400 hover:bg-green-100 hover:text-green-600'}`}
+                            >
+                                Mercado
+                            </button>
+                            <button 
+                                type="button" 
+                                onClick={() => setKitchenStation('prep')}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded border transition-colors ${kitchenStation === 'prep' ? 'bg-white border-red-500 text-red-700 shadow-sm' : 'border-transparent text-gray-400 hover:bg-red-100 hover:text-red-600'}`}
+                            >
+                                Prep
+                            </button>
+                            <button 
+                                type="button" 
+                                onClick={() => setKitchenStation('pantry')}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded border transition-colors ${kitchenStation === 'pantry' ? 'bg-white border-blue-500 text-blue-700 shadow-sm' : 'border-transparent text-gray-400 hover:bg-blue-100 hover:text-blue-600'}`}
+                            >
+                                Almacén
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 {error && <p className="text-sm text-red-600 text-center">{error}</p>}

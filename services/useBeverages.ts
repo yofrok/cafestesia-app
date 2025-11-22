@@ -2,10 +2,21 @@
 import { useState, useEffect } from 'react';
 import { Beverage, BeverageOrder } from '../types';
 import { db } from './firebase';
-import * as firestore from 'firebase/firestore';
+import { 
+    collection, 
+    query, 
+    orderBy, 
+    onSnapshot, 
+    where, 
+    addDoc, 
+    doc, 
+    updateDoc, 
+    deleteDoc,
+    QuerySnapshot
+} from 'firebase/firestore';
 
-const beveragesCollectionRef = firestore.collection(db, 'beverages');
-const ordersCollectionRef = firestore.collection(db, 'beverage_orders');
+const beveragesCollectionRef = collection(db, 'beverages');
+const ordersCollectionRef = collection(db, 'beverage_orders');
 
 export const useBeverages = () => {
     const [beverages, setBeverages] = useState<Beverage[]>([]);
@@ -13,8 +24,8 @@ export const useBeverages = () => {
 
     // 1. Sync Menu (Beverages)
     useEffect(() => {
-        const q = firestore.query(beveragesCollectionRef, firestore.orderBy("name"));
-        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
+        const q = query(beveragesCollectionRef, orderBy("name"));
+        const unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot) => {
             const data = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
@@ -28,11 +39,11 @@ export const useBeverages = () => {
     useEffect(() => {
         // Query ONLY by status to avoid needing a composite index in Firestore.
         // We will sort by createdAt client-side.
-        const q = firestore.query(
+        const q = query(
             ordersCollectionRef, 
-            firestore.where("status", "==", "pending")
+            where("status", "==", "pending")
         );
-        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
+        const unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot) => {
             const data = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
@@ -51,7 +62,7 @@ export const useBeverages = () => {
         try { 
             // Sanitize to remove undefined
             const sanitized = JSON.parse(JSON.stringify(data));
-            await firestore.addDoc(beveragesCollectionRef, sanitized); 
+            await addDoc(beveragesCollectionRef, sanitized); 
         }
         catch (e) { console.error(e); }
     };
@@ -61,13 +72,13 @@ export const useBeverages = () => {
         try { 
             // Sanitize to remove undefined
             const sanitized = JSON.parse(JSON.stringify(rest));
-            await firestore.updateDoc(firestore.doc(db, 'beverages', id), sanitized); 
+            await updateDoc(doc(db, 'beverages', id), sanitized); 
         }
         catch (e) { console.error(e); }
     };
 
     const deleteBeverage = async (id: string) => {
-        try { await firestore.deleteDoc(firestore.doc(db, 'beverages', id)); }
+        try { await deleteDoc(doc(db, 'beverages', id)); }
         catch (e) { console.error(e); }
     };
 
@@ -84,13 +95,13 @@ export const useBeverages = () => {
         // Firestore rejects documents containing undefined fields.
         const sanitizedOrder = JSON.parse(JSON.stringify(order));
 
-        try { await firestore.addDoc(ordersCollectionRef, sanitizedOrder); }
+        try { await addDoc(ordersCollectionRef, sanitizedOrder); }
         catch (e) { console.error("Error creating order:", e); }
     };
 
     const completeOrder = async (orderId: string) => {
         try {
-            await firestore.updateDoc(firestore.doc(db, 'beverage_orders', orderId), {
+            await updateDoc(doc(db, 'beverage_orders', orderId), {
                 status: 'completed',
                 completedAt: Date.now()
             });
@@ -99,7 +110,7 @@ export const useBeverages = () => {
     
     const cancelOrder = async (orderId: string) => {
          try {
-            await firestore.deleteDoc(firestore.doc(db, 'beverage_orders', orderId));
+            await deleteDoc(doc(db, 'beverage_orders', orderId));
         } catch (e) { console.error("Error cancelling order:", e); }
     }
 

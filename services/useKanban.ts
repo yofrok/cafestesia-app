@@ -3,20 +3,33 @@ import { useState, useEffect, useCallback } from 'react';
 import { KanbanTask, TaskStatus, TaskTemplate } from '../types';
 import { INITIAL_TASKS } from '../constants';
 import { db } from './firebase';
-// FIX: Use namespace import for firestore to fix module resolution issues.
-import * as firestore from 'firebase/firestore';
+// FIX: Use named imports for firestore to fix module resolution issues.
+import { 
+    collection, 
+    query, 
+    onSnapshot, 
+    doc, 
+    updateDoc, 
+    addDoc, 
+    writeBatch, 
+    deleteField, 
+    deleteDoc, 
+    getDocs, 
+    where,
+    QuerySnapshot 
+} from 'firebase/firestore';
 
-const tasksCollectionRef = firestore.collection(db, 'tasks');
-const templatesCollectionRef = firestore.collection(db, 'task_templates');
+const tasksCollectionRef = collection(db, 'tasks');
+const templatesCollectionRef = collection(db, 'task_templates');
 
 export const useKanban = () => {
     const [tasks, setTasks] = useState<KanbanTask[]>([]);
 
     useEffect(() => {
         // Query without date/time ordering to fetch all tasks, including unplanned ones.
-        const q = firestore.query(tasksCollectionRef);
+        const q = query(tasksCollectionRef);
         
-        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
+        const unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot) => {
             // REMOVED: Auto-seeding logic. 
             // This prevents the "Zombie Task" issue where emptying the list causes it to regenerate immediately.
             
@@ -33,9 +46,9 @@ export const useKanban = () => {
     }, []);
 
     const updateTaskStatus = async (taskId: string, newStatus: TaskStatus) => {
-        const taskRef = firestore.doc(db, 'tasks', taskId);
+        const taskRef = doc(db, 'tasks', taskId);
         try {
-            await firestore.updateDoc(taskRef, { status: newStatus });
+            await updateDoc(taskRef, { status: newStatus });
         } catch (error) {
             console.error("Error updating task status:", error);
         }
@@ -43,7 +56,7 @@ export const useKanban = () => {
 
     const addTask = async (taskData: Omit<KanbanTask, 'id' | 'status'>) => {
         try {
-            await firestore.addDoc(tasksCollectionRef, { ...taskData, status: 'todo' });
+            await addDoc(tasksCollectionRef, { ...taskData, status: 'todo' });
         } catch (error) {
             console.error("Error adding task:", error);
         }
@@ -51,10 +64,10 @@ export const useKanban = () => {
     
     const addMultipleTasks = async (tasksData: Omit<KanbanTask, 'id' | 'status'>[]) => {
         try {
-            const batch = firestore.writeBatch(db);
+            const batch = writeBatch(db);
             const recurrenceId = `rec-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
             tasksData.forEach(taskData => {
-                const docRef = firestore.doc(tasksCollectionRef);
+                const docRef = doc(tasksCollectionRef);
                 batch.set(docRef, { ...taskData, status: 'todo', recurrenceId });
             });
             await batch.commit();
@@ -65,25 +78,25 @@ export const useKanban = () => {
 
     const updateTask = async (updatedTask: KanbanTask) => {
         const { id, ...taskData } = updatedTask;
-        const taskRef = firestore.doc(db, 'tasks', id);
+        const taskRef = doc(db, 'tasks', id);
         const dataToUpdate: { [key: string]: any } = taskData;
         
         // If recurrenceId is not present in the object, it means we want to remove it.
         if (!('recurrenceId' in taskData)) {
-            dataToUpdate.recurrenceId = firestore.deleteField();
+            dataToUpdate.recurrenceId = deleteField();
         }
 
         try {
-            await firestore.updateDoc(taskRef, dataToUpdate);
+            await updateDoc(taskRef, dataToUpdate);
         } catch (error) {
             console.error("Error updating task:", error);
         }
     };
 
     const deleteTask = async (taskId: string) => {
-        const taskRef = firestore.doc(db, 'tasks', taskId);
+        const taskRef = doc(db, 'tasks', taskId);
         try {
-            await firestore.deleteDoc(taskRef);
+            await deleteDoc(taskRef);
         } catch (error) {
             console.error("Error deleting task:", error);
         }
@@ -92,17 +105,17 @@ export const useKanban = () => {
     const updateFutureTasks = async (originalTask: KanbanTask, updates: Partial<Omit<KanbanTask, 'id' | 'recurrenceId'>>) => {
         if (!originalTask.recurrenceId || !originalTask.date) return;
 
-        const q = firestore.query(
+        const q = query(
             tasksCollectionRef,
-            firestore.where("recurrenceId", "==", originalTask.recurrenceId),
-            firestore.where("date", ">=", originalTask.date)
+            where("recurrenceId", "==", originalTask.recurrenceId),
+            where("date", ">=", originalTask.date)
         );
 
         try {
-            const querySnapshot = await firestore.getDocs(q);
-            const batch = firestore.writeBatch(db);
+            const querySnapshot = await getDocs(q);
+            const batch = writeBatch(db);
             querySnapshot.forEach((document) => {
-                const taskRef = firestore.doc(db, 'tasks', document.id);
+                const taskRef = doc(db, 'tasks', document.id);
                 const { recurrenceId, ...safeUpdates } = updates as any;
                 batch.update(taskRef, safeUpdates);
             });
@@ -115,17 +128,17 @@ export const useKanban = () => {
     const deleteFutureTasks = async (originalTask: KanbanTask) => {
         if (!originalTask.recurrenceId || !originalTask.date) return;
 
-        const q = firestore.query(
+        const q = query(
             tasksCollectionRef,
-            firestore.where("recurrenceId", "==", originalTask.recurrenceId),
-            firestore.where("date", ">=", originalTask.date)
+            where("recurrenceId", "==", originalTask.recurrenceId),
+            where("date", ">=", originalTask.date)
         );
 
         try {
-            const querySnapshot = await firestore.getDocs(q);
-            const batch = firestore.writeBatch(db);
+            const querySnapshot = await getDocs(q);
+            const batch = writeBatch(db);
             querySnapshot.forEach((document) => {
-                batch.delete(firestore.doc(db, 'tasks', document.id));
+                batch.delete(doc(db, 'tasks', document.id));
             });
             await batch.commit();
         } catch (error) {
@@ -142,11 +155,11 @@ export const useKanban = () => {
             return;
         }
 
-        const draggedTaskRef = firestore.doc(db, 'tasks', draggedTaskId);
-        const targetTaskRef = firestore.doc(db, 'tasks', targetTaskId);
+        const draggedTaskRef = doc(db, 'tasks', draggedTaskId);
+        const targetTaskRef = doc(db, 'tasks', targetTaskId);
 
         try {
-            const batch = firestore.writeBatch(db);
+            const batch = writeBatch(db);
             // Swap times
             batch.update(draggedTaskRef, { time: targetTask.time });
             batch.update(targetTaskRef, { time: draggedTask.time });
@@ -160,10 +173,10 @@ export const useKanban = () => {
 
     const clearAllTasks = async () => {
         try {
-            const snapshot = await firestore.getDocs(tasksCollectionRef);
-            const batch = firestore.writeBatch(db);
-            snapshot.docs.forEach((doc) => {
-                batch.delete(doc.ref);
+            const snapshot = await getDocs(tasksCollectionRef);
+            const batch = writeBatch(db);
+            snapshot.docs.forEach((docSnap) => {
+                batch.delete(docSnap.ref);
             });
             await batch.commit();
             console.log("All tasks cleared.");
@@ -179,9 +192,9 @@ export const useKanban = () => {
             await clearAllTasks();
             
             // 2. Seed defaults
-            const batch = firestore.writeBatch(db);
+            const batch = writeBatch(db);
             INITIAL_TASKS.forEach(task => {
-                const newDocRef = firestore.doc(tasksCollectionRef);
+                const newDocRef = doc(tasksCollectionRef);
                 batch.set(newDocRef, task);
             });
             await batch.commit();
@@ -202,24 +215,24 @@ export const useKanban = () => {
             const dayOfWeek = localDate.getDay();
 
             // 2. Get all templates
-            const templatesSnapshot = await firestore.getDocs(templatesCollectionRef);
+            const templatesSnapshot = await getDocs(templatesCollectionRef);
             if (templatesSnapshot.empty) return;
 
             // 3. Get existing tasks for this day to prevent duplicates
-            const existingTasksQuery = firestore.query(tasksCollectionRef, firestore.where("date", "==", dateStr));
-            const existingTasksSnapshot = await firestore.getDocs(existingTasksQuery);
+            const existingTasksQuery = query(tasksCollectionRef, where("date", "==", dateStr));
+            const existingTasksSnapshot = await getDocs(existingTasksQuery);
             const existingTemplateIds = new Set(
                 existingTasksSnapshot.docs
                     .map(doc => (doc.data() as KanbanTask).templateId)
                     .filter(id => !!id)
             );
 
-            const batch = firestore.writeBatch(db);
+            const batch = writeBatch(db);
             let tasksAdded = 0;
 
-            templatesSnapshot.forEach(doc => {
+            templatesSnapshot.forEach(docSnap => {
                 // FIX: Cast doc.data() to Omit<TaskTemplate, 'id'> to prevent TypeScript error about overwriting 'id'
-                const template = { id: doc.id, ...(doc.data() as Omit<TaskTemplate, 'id'>) } as TaskTemplate;
+                const template = { id: docSnap.id, ...(docSnap.data() as Omit<TaskTemplate, 'id'>) } as TaskTemplate;
 
                 // Check if routine runs today
                 if (template.frequencyDays.includes(dayOfWeek)) {
@@ -245,7 +258,7 @@ export const useKanban = () => {
                             addedBy: 'Sistema (Rutina)'
                         };
 
-                        const newRef = firestore.doc(tasksCollectionRef);
+                        const newRef = doc(tasksCollectionRef);
                         batch.set(newRef, newTask);
                         tasksAdded++;
                     }

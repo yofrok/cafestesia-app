@@ -6,10 +6,10 @@ import Icon from '../../components/Icon';
 import Modal from '../../components/Modal';
 import { InventoryItem } from '../../types';
 import { db } from '../../services/firebase';
-import * as firestore from 'firebase/firestore';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 // FIX: Using Firestore 'settings' collection instead of localStorage to ensure sync across devices (Mac/iPad).
-const settingsDocRef = firestore.doc(db, 'settings', 'bakery_dashboard');
+const settingsDocRef = doc(db, 'settings', 'bakery_dashboard');
 
 type ColumnType = 'wip' | 'finished' | 'none';
 
@@ -30,7 +30,7 @@ const BakeryStockDashboard: React.FC<BakeryStockDashboardProps> = ({ inventoryHo
 
     // Load config from Firestore on mount (real-time sync)
     useEffect(() => {
-        const unsubscribe = firestore.onSnapshot(settingsDocRef, (doc) => {
+        const unsubscribe = onSnapshot(settingsDocRef, (doc) => {
             if (doc.exists()) {
                 setConfig(doc.data() as DashboardConfig);
             }
@@ -47,7 +47,7 @@ const BakeryStockDashboard: React.FC<BakeryStockDashboardProps> = ({ inventoryHo
         setConfig(newConfig);
         setIsConfigOpen(false);
         try {
-            await firestore.setDoc(settingsDocRef, newConfig);
+            await setDoc(settingsDocRef, newConfig);
         } catch (e) {
             console.error("Error saving dashboard settings:", e);
         }

@@ -74,6 +74,7 @@ export interface ProductionProcess {
     stepTimeLeft: number;
 
     lastTickTimestamp: number;
+    startedAt?: number;
 }
 
 export interface User {
@@ -148,6 +149,7 @@ export interface InventoryItem {
     providerPreferido: string;
     purchaseHistory: PurchaseRecord[];
     isBakeryCritical?: boolean; // Smart tagging for Bakery Dashboard
+    kitchenStation?: 'market' | 'prep' | 'pantry'; // New classification for Kitchen Dashboard
 }
 
 export interface Provider {

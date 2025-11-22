@@ -2,17 +2,26 @@
 import { useState, useEffect } from 'react';
 import { User } from '../types';
 import { db } from './firebase';
-// FIX: Use namespace import for firestore to fix module resolution issues.
-import * as firestore from 'firebase/firestore';
+import { 
+    collection, 
+    query, 
+    orderBy, 
+    onSnapshot, 
+    addDoc, 
+    doc, 
+    updateDoc, 
+    deleteDoc,
+    QuerySnapshot
+} from 'firebase/firestore';
 
-const usersCollectionRef = firestore.collection(db, 'users');
+const usersCollectionRef = collection(db, 'users');
 
 export const useUsers = () => {
     const [users, setUsers] = useState<User[]>([]);
 
     useEffect(() => {
-        const q = firestore.query(usersCollectionRef, firestore.orderBy("name"));
-        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
+        const q = query(usersCollectionRef, orderBy("name"));
+        const unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot) => {
             const usersData = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
@@ -27,7 +36,7 @@ export const useUsers = () => {
 
     const addUser = async (userData: Omit<User, 'id'>) => {
         try {
-            await firestore.addDoc(usersCollectionRef, userData);
+            await addDoc(usersCollectionRef, userData);
         } catch (error) {
             console.error("Error adding user:", error);
         }
@@ -35,18 +44,18 @@ export const useUsers = () => {
 
     const updateUser = async (userData: User) => {
         const { id, ...data } = userData;
-        const userRef = firestore.doc(db, 'users', id);
+        const userRef = doc(db, 'users', id);
         try {
-            await firestore.updateDoc(userRef, data);
+            await updateDoc(userRef, data);
         } catch (error) {
             console.error("Error updating user:", error);
         }
     };
 
     const deleteUser = async (userId: string) => {
-        const userRef = firestore.doc(db, 'users', userId);
+        const userRef = doc(db, 'users', userId);
         try {
-            await firestore.deleteDoc(userRef);
+            await deleteDoc(userRef);
         } catch (error) {
             console.error("Error deleting user:", error);
         }

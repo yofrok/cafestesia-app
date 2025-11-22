@@ -2,9 +2,21 @@
 import { useState, useEffect } from 'react';
 import { Recipe } from '../types';
 import { db } from './firebase';
-import * as firestore from 'firebase/firestore';
+import { 
+    collection, 
+    query, 
+    orderBy, 
+    onSnapshot, 
+    addDoc, 
+    doc, 
+    updateDoc, 
+    deleteDoc, 
+    getDocs, 
+    writeBatch,
+    QuerySnapshot
+} from 'firebase/firestore';
 
-const recipesCollectionRef = firestore.collection(db, 'recipes');
+const recipesCollectionRef = collection(db, 'recipes');
 
 const INITIAL_RECIPES_DATA: Omit<Recipe, 'id'>[] = [
     {
@@ -122,8 +134,8 @@ export const useRecipes = () => {
     const [recipes, setRecipes] = useState<Recipe[]>([]);
 
     useEffect(() => {
-        const q = firestore.query(recipesCollectionRef, firestore.orderBy("name"));
-        const unsubscribe = firestore.onSnapshot(q, (snapshot: firestore.QuerySnapshot) => {
+        const q = query(recipesCollectionRef, orderBy("name"));
+        const unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot) => {
             // If empty, we can suggest seeding, but we won't auto-seed to avoid conflicts during manual resets
             if (snapshot.empty) {
                  // Optional: console.log("No recipes found.");
@@ -143,7 +155,7 @@ export const useRecipes = () => {
     const addRecipe = async (recipeData: Omit<Recipe, 'id'>) => {
         try {
             const sanitizedData = JSON.parse(JSON.stringify(recipeData));
-            await firestore.addDoc(recipesCollectionRef, sanitizedData);
+            await addDoc(recipesCollectionRef, sanitizedData);
         } catch (error) {
             console.error("Error adding recipe:", error);
         }
@@ -151,19 +163,19 @@ export const useRecipes = () => {
 
     const updateRecipe = async (recipeData: Recipe) => {
         const { id, ...data } = recipeData;
-        const recipeRef = firestore.doc(db, 'recipes', id);
+        const recipeRef = doc(db, 'recipes', id);
         try {
             const sanitizedData = JSON.parse(JSON.stringify(data));
-            await firestore.updateDoc(recipeRef, sanitizedData);
+            await updateDoc(recipeRef, sanitizedData);
         } catch (error) {
             console.error("Error updating recipe:", error);
         }
     };
 
     const deleteRecipe = async (recipeId: string) => {
-        const recipeRef = firestore.doc(db, 'recipes', recipeId);
+        const recipeRef = doc(db, 'recipes', recipeId);
         try {
-            await firestore.deleteDoc(recipeRef);
+            await deleteDoc(recipeRef);
         } catch (error) {
             console.error("Error deleting recipe:", error);
         }
@@ -176,17 +188,17 @@ export const useRecipes = () => {
         
         try {
             console.log("Resetting recipes...");
-            const snapshot = await firestore.getDocs(recipesCollectionRef);
-            const batch = firestore.writeBatch(db);
+            const snapshot = await getDocs(recipesCollectionRef);
+            const batch = writeBatch(db);
 
             // 1. Delete ALL existing recipes
-            snapshot.docs.forEach((doc) => {
-                batch.delete(doc.ref);
+            snapshot.docs.forEach((docSnap) => {
+                batch.delete(docSnap.ref);
             });
 
             // 2. Create NEW standard recipes
             INITIAL_RECIPES_DATA.forEach((recipe) => {
-                const newDocRef = firestore.doc(recipesCollectionRef);
+                const newDocRef = doc(recipesCollectionRef);
                 batch.set(newDocRef, recipe);
             });
             
