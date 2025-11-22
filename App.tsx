@@ -12,6 +12,7 @@ import Icon from './components/Icon';
 import { useUsers } from './services/useUsers';
 import AudioUnlockBanner from './components/AudioUnlockBanner';
 import { useRecipes } from './services/useRecipes';
+import { useWakeLock } from './services/useWakeLock';
 
 // --- Code Splitting ---
 const BreadProductionScreen = lazy(() => import('./features/baking/BreadProductionScreen'));
@@ -42,6 +43,9 @@ const App: React.FC = () => {
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [operationsDate, setOperationsDate] = useState(new Date());
     const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
+
+    // Initialize Wake Lock Globally (Prevent Screen Sleep)
+    useWakeLock();
 
     // Centralized Hooks
     const productionHook = useProduction();

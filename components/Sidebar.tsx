@@ -2,6 +2,7 @@
 import React from 'react';
 import { Screen, KanbanTask, InventoryItem, ProductionProcess, User } from '../types';
 import Icon from './Icon';
+import { useWakeLock } from '../services/useWakeLock';
 
 interface SidebarProps {
     activeScreen: Screen;
@@ -19,6 +20,9 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ activeScreen, setActiveScreen, processes, urgentTasks, shoppingListItems, inProgressTasks, isOpen, onClose, users, onNavigateToTask, setOperationsDate, setHighlightedTaskId }) => {
+    
+    // Check lock status for UI indicator
+    const { isLocked } = useWakeLock();
 
     const handleNavClick = (screen: Screen) => {
         if (screen === Screen.Operations) {
@@ -62,11 +66,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activeScreen, setActiveScreen, proces
 
     const activeProcesses = processes.filter(p => p.state !== 'finished');
     const isBakingRelated = activeScreen === Screen.Baking;
+    
+    // Zen Mode Logic: If we are in Beverages screen, we treat desktop like mobile (overlay drawer)
+    // We remove the 'md:relative' classes so it stays fixed and hidden until toggled.
+    const isZenMode = activeScreen === Screen.Beverages;
 
     const sidebarClasses = `
         sidebar-nav flex flex-col bg-white p-4 border-r border-gray-200 overflow-y-auto 
         fixed inset-y-0 left-0 z-50 w-60 transform transition-transform duration-300 ease-in-out 
-        md:relative md:w-60 md:translate-x-0
+        ${!isZenMode ? 'md:relative md:w-60 md:translate-x-0' : ''}
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
     `;
 
@@ -74,7 +82,18 @@ const Sidebar: React.FC<SidebarProps> = ({ activeScreen, setActiveScreen, proces
         <nav className={sidebarClasses}>
             <header className="sidebar-header text-center mb-6 pt-4 flex-shrink-0">
                 <h1 className="text-2xl font-bold text-blue-600">Cafestesia</h1>
-                <span className="text-sm text-gray-500">Gestor v2.1 (React)</span>
+                <div className="flex items-center justify-center gap-2 mt-1">
+                    <span className="text-sm text-gray-500">Gestor v2.2</span>
+                    {isLocked ? (
+                        <span title="Pantalla siempre encendida" className="flex items-center text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">
+                            <Icon name="thermometer-sun" size={10} className="mr-1"/> ON
+                        </span>
+                    ) : (
+                        <span title="Bloqueo de pantalla normal" className="flex items-center text-[10px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200">
+                            <Icon name="thermometer-snowflake" size={10} className="mr-1"/> OFF
+                        </span>
+                    )}
+                </div>
             </header>
 
             <div className="flex-grow">
